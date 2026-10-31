@@ -295,7 +295,7 @@ function renderUsageBars(root, limits){
     const makeCell=(i)=>{
       const el=document.createElement("div");
       const used=i<=Math.ceil(pct*N/100-1e-9);
-      const overused=used && timePct!=null && i>Math.ceil(timePct*N/100-1e-9);
+      const overused=used && timePct!=null && i>Math.floor(timePct*N/100);   // block reaches past the pace marker
       el.className="bar h-5 rounded-[2px] "+(used?(overused?"bg-rose-500":"bg-emerald-500"):"bg-slate-200");
       el.title=`${limit.label} · ${fmtPct(pct)} used${timePct==null?"":` · ${fmtPct(timePct)} time elapsed`} · block ${i}/${N}`;
       return el;
@@ -322,7 +322,11 @@ function renderUsageBars(root, limits){
     if(timePct!=null){
       const marker=document.createElement("div");
       marker.className="absolute top-0 h-[6.4px] w-2.5 -translate-x-1/2 rounded-[1px] bg-emerald-800";
-      marker.style.left=`${timePct}%`;
+      // Place the marker on the block where the elapsed time falls (the weekly bar has day gaps).
+      const blocks=cells.querySelectorAll(".bar"), x=timePct*N/100, b=blocks[Math.min(N-1,Math.floor(x))];
+      if(b){const r=b.getBoundingClientRect(), t=track.getBoundingClientRect();
+        marker.style.left=`${r.left-t.left+(Math.min(x,N)-Math.min(N-1,Math.floor(x)))*r.width}px`;}
+      else marker.style.left=`${timePct}%`;
       marker.style.clipPath="polygon(50% 0, 100% 100%, 0 100%)";
       marker.title=`${limit.label} time pace · ${fmtPct(timePct)} elapsed`;
       track.appendChild(marker);
@@ -368,7 +372,7 @@ function usageState(cell,limits,now){
   const over=limits.some(l=>{ // same rule as the "Overused" cells: used% ahead of elapsed-time%
     if(!(l.window_minutes>0 && l.resets_at>0)) return false;
     const t=Math.max(0,Math.min(100,(now-(l.resets_at-l.window_minutes*60))/(l.window_minutes*60)*100));
-    return Math.ceil(l.used_percent||0)>Math.ceil(t);
+    return (l.used_percent||0)>t;
   });
   if(over) return ["bg-amber-500","Overused","text-amber-600","bg-amber-50 border-amber-200"];
   return ["bg-emerald-500","Operational","text-emerald-600","bg-emerald-50 border-emerald-200"];
