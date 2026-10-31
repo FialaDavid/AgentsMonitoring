@@ -422,3 +422,27 @@ class AttachHintsAreQuoted(unittest.TestCase):
         self.assertTrue(hints)
         for expr in hints:
             self.assertTrue(expr.startswith("shlex.quote("), expr)
+
+
+class ConfigLabelOverride(unittest.TestCase):
+    """A hand-set display name in the agent config is what the dashboard shows."""
+    def _label(self, entry):
+        cfg = {"agents": [{"name": "X", **entry}], "pinned_daemons": []}
+        found = [{"name": "X", "kind": "codex", "label": "Detected", "session_id": None,
+                  "vendor": None, "alive": True, "age": 1, "resume_cmd": None, "pids": [1]}]
+        orig = detect.discover_agents
+        detect.discover_agents = lambda *a, **k: found
+        try:
+            return {a["name"]: a for a in dashboard._agents_state(cfg)}["X"]["label"]
+        finally:
+            detect.discover_agents = orig
+
+    def test_label_key_is_shown(self):
+        self.assertEqual(self._label({"label": "My model"}), "My model")
+
+    def test_tag_key_still_works_and_wins_over_label(self):
+        self.assertEqual(self._label({"tag": "Tagged"}), "Tagged")
+        self.assertEqual(self._label({"tag": "Tagged", "label": "My model"}), "Tagged")
+
+    def test_no_override_keeps_the_detected_label(self):
+        self.assertEqual(self._label({}), "Detected")

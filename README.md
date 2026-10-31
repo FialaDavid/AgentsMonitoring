@@ -321,8 +321,9 @@ hash (`dashboard.auth.pwhash`), never in plaintext. Remove the `auth` block to t
   default), `system_latency` (average current latency across **all** health‑checked components —
   a system overview number), `avg_latency` (this service's average over the SLA window), or
   `agents` (running tmux‑agent count).
-- **agents[].tag / agents[].vendor** — override the model label and tag colour shown for a
-  detected agent (otherwise the detected type + maker colour are used).
+- **agents[].tag (or agents[].label) / agents[].vendor** — override the model label and tag colour
+  shown for a detected agent (otherwise the detected type + maker colour are used). `tag` and
+  `label` are interchangeable; if both are set, `tag` wins.
 - **Telegram link (optional)** — agents/daemons connected to a Telegram bot get a small Telegram
   icon that opens `t.me/<bot>`. Two ways it's filled, explicit wins:
   - **explicit** — set `"telegram": "@yourbot"` (or a full `t.me` URL) on a `pinned_daemons[]` /

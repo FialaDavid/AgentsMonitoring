@@ -486,7 +486,7 @@ def _tg_link(value: str) -> tuple[str, str]:
 
 def _agents_state(cfg: dict) -> list[dict]:
     """Pinned daemons (OpenClaw/Hermes…) first, then running tmux agents, with config display
-    overrides (tag → label, vendor → tag colour) applied."""
+    overrides (tag/label → label, vendor → tag colour) applied."""
     overrides = {a["name"]: a for a in cfg.get("agents", []) if a.get("name")}
     from .identity import restart_warnings
     warnings = restart_warnings(cfg)
@@ -507,8 +507,8 @@ def _agents_state(cfg: dict) -> list[dict]:
         ov = overrides.get(a["name"], {})
         if a['name'] in warnings:
             a['restart_warning'] = warnings[a['name']]
-        if ov.get("tag"):
-            a["label"] = ov["tag"]
+        if ov.get("tag") or ov.get("label"):
+            a["label"] = ov.get("tag") or ov["label"]
         if ov.get("vendor"):
             a["vendor"] = ov["vendor"]
         if ov.get("restart") and not a.get('identity_conflict') and a.get('session_id'):
