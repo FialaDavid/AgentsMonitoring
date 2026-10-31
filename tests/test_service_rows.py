@@ -73,7 +73,7 @@ class RowsRecordedAndShown(unittest.TestCase):
         self.assertIn('class="svc-rows-wrap', dashboard.PAGE)
         self.assertIn("function renderRows(root, rows, details=false)", dashboard.PAGE)
         self.assertIn("renderRows(root, s.rows||[], s.row_details===true)", dashboard.PAGE)
-        self.assertEqual(dashboard.PAGE.count('style="table-layout:fixed;min-width:680px"'), 3, "agents, sandbox, rows")
+        self.assertEqual(dashboard.PAGE.count('style="table-layout:fixed;min-width:'), 3, "agents, sandbox, rows")
 
 
 if __name__ == "__main__":

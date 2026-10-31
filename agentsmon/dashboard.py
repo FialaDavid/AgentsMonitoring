@@ -61,7 +61,7 @@ AGENT_TABLE = r"""
     </div>
     <div class="svc-body">
     <div class="rounded-lg border border-slate-200 bg-white overflow-x-auto">
-      <table class="w-full text-sm" style="table-layout:fixed;min-width:680px"><colgroup><col style="width:21%"><col style="width:13%"><col style="width:32%"><col style="width:12%"><col style="width:14%"><col style="width:8%"></colgroup><thead>
+      <table class="w-full text-sm" style="table-layout:fixed;min-width:852px"><colgroup><col style="width:170px"><col style="width:150px"><col style="width:230px"><col style="width:97px"><col style="width:140px"><col style="width:65px"></colgroup><thead>
         <tr class="text-[11px] uppercase tracking-wide text-slate-400 border-b border-slate-100">
           <th class="text-left font-medium px-2 py-2">Agent</th>
           <th class="text-left font-medium px-2 py-2">Model</th>
@@ -78,13 +78,17 @@ AGENT_TABLE = r"""
   </section>"""
 
 
-USAGE_SECTION = r"""
-  <section id="usage-section" class="mb-6" hidden>
+USAGE_SECTION = r"""<div id="usage-sections"></div>"""
+
+USAGE_SVC = r"""
+  <section class="mb-6">
     <div class="svc-head flex items-center gap-2.5 mb-3 rounded-lg border px-3 py-2 bg-white border-slate-200">
-      <h2 class="text-base font-semibold">Usage</h2>
-      <span class="svc-chev text-slate-400 text-xs ml-auto select-none" title="collapse / expand">▾</span>
+      <span class="svc-dot h-3 w-3 rounded-full bg-slate-300 shrink-0"></span>
+      <h2 class="min-w-0 flex items-center gap-2.5 text-base font-semibold"><span class="usage-title whitespace-nowrap"></span><span class="usage-agent truncate text-xs font-normal text-slate-400"></span></h2>
+      <span class="svc-state ml-auto whitespace-nowrap text-sm font-medium text-slate-400"></span>
+      <span class="svc-chev text-slate-400 text-xs ml-2 select-none" title="collapse / expand">▾</span>
     </div>
-    <div class="svc-body"><div class="usage-blocks"></div></div>
+    <div class="svc-body"></div>
   </section>"""
 
 
@@ -96,12 +100,13 @@ PAGE = r"""<!DOCTYPE html><html lang="en"><head>
 <style>.bar{transition:opacity .15s ease}.bar:hover{opacity:.65}.usage-day-divider::before{content:"";position:absolute;left:-3px;top:-4px;bottom:-4px;width:1px;border-radius:1px;background:#94a3b8}.copied-flash{color:#059669!important;transition:color .1s}#toast{transition:opacity .2s ease}.agent-rows td{overflow:hidden}.sid{display:block;overflow:hidden;text-overflow:ellipsis}</style>
 </head><body class="bg-slate-50 text-slate-800 antialiased">
 <div id="toast" class="fixed left-1/2 bottom-5 -translate-x-1/2 bg-slate-800 text-white text-sm px-2 py-1.5 rounded-md shadow-lg opacity-0 pointer-events-none" style="z-index:50">&nbsp;</div>
-<div id="app" class="mx-auto px-5 py-6" style="max-width:850px">
+<div id="app" class="mx-auto px-5 py-6" style="max-width:1100px">
 AGENT_TABLES
   <div id="services"></div>
   <p class="text-center text-[11px] text-slate-300" id="footer">auto-refresh</p>
 </div>
 
+<template id="usage-tpl">USAGE_SVC</template>
 <template id="svc-tpl">
   <section class="mb-6">
     <div class="svc-head flex items-center gap-2.5 mb-3 rounded-lg border px-3 py-2 bg-white border-slate-200">
@@ -175,26 +180,25 @@ function fmtDuration(s){if(s==null)return "–";const d=Math.floor(s/86400),h=Ma
   return d?`${d}d ${h}h`:h?`${h}h ${m}m`:`${m}m`;}
 function fmtTime(u){return u?new Date(u*1000).toLocaleString():"";}
 function fmtPct(n){return n==null?"–":(Number.isInteger(n)?n.toFixed(0):n.toFixed(1)).replace(/\.0$/,"")+"%";}
-function fmtDateTime(ts){
-  if(!ts)return "reset unknown";
-  const d=new Date(ts*1000);
-  const pad=n=>String(n).padStart(2,"0");
-  return `${pad(d.getDate())}/${pad(d.getMonth()+1)}/${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
-}
 function fmtReset(ts, now){
   if(!ts)return "reset unknown";
   const sec=Math.max(0, Math.floor(ts-now));
-  const h=Math.floor(sec/3600), m=Math.floor((sec%3600)/60);
-  const rel=h?`${h}h ${m}m`:`${m}m`;
-  return `resets in ${rel} · ${fmtDateTime(ts)}`;
+  const rel=fmtDuration(sec);
+  const d=new Date(ts*1000), pad=n=>String(n).padStart(2,"0");
+  return `resets in ${rel} · ${d.toLocaleDateString("en-GB",{weekday:"short"})} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 function fmtLat(ms){return ms==null?"–":(ms<1?"<1 ms":ms+" ms");}
 function esc(s){return String(s==null?"":s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));}
 const q=(r,s)=>r.querySelector(s);
 
+// One bar = one day; narrow cards show only the most recent days that fit (>= ~4px per bar incl. gap).
+function timelineDays(w){return w>=360||w<=0?90:w>=180?45:30;}
 function renderTimeline(root, buckets, windowDays){
   const tl=q(root,".svc-timeline"); tl.innerHTML=""; const GREEN=98;
-  buckets.forEach(b=>{
+  tl._tl={root,buckets,windowDays};
+  const n=timelineDays(tl.clientWidth), shown=buckets.length>n?buckets.slice(-n):buckets;
+  tl.dataset.days=n;
+  shown.forEach(b=>{
     const el=document.createElement("div"); let cls,status;
     if(b.uptime_pct==null){cls="bg-slate-200";status="no data";}
     else if(b.uptime_pct>=GREEN){cls="bg-emerald-500";status=`${b.uptime_pct}% uptime`;}
@@ -203,8 +207,9 @@ function renderTimeline(root, buckets, windowDays){
     el.title=`${new Date(b.start*1000).toLocaleDateString()} · ${status}`;
     tl.appendChild(el);
   });
-  q(root,".svc-tl-window").textContent="last "+windowDays+" days";
-  if(buckets.length) q(root,".svc-tl-start").textContent=new Date(buckets[0].start*1000).toLocaleDateString();
+  q(root,".svc-tl-window").textContent="last "+(buckets.length>n?n:windowDays)+" days";
+  if(shown.length) q(root,".svc-tl-start").textContent=new Date(shown[0].start*1000).toLocaleDateString();
+  watchBars(); if(usageRO) usageRO.observe(tl);
 }
 function renderService(root, s){
   const st=STATE[s.state]||STATE.nodata;
@@ -270,8 +275,10 @@ function renderUsageBars(root, limits){
   box.innerHTML="";
   (limits||[]).forEach(limit=>{
     const row=document.createElement("div");
-    row.className="grid grid-cols-[64px_1fr] items-start gap-2";
-    row.innerHTML=`<div class="flex h-5 items-center text-[11px] font-medium leading-none text-slate-400">${esc(limit.label)}</div><div><div class="grid gap-[2px] usage-bar-cells"></div><div class="relative mt-1 h-3 usage-time-track"></div></div>`;
+    row.className="sm:grid sm:grid-cols-[1fr_210px] sm:gap-5 items-start";
+    row.innerHTML=`<div><div class="mb-1 text-[11px] font-semibold uppercase tracking-wide text-slate-500">${esc(limit.label)}</div><div class="grid gap-[2px] usage-bar-cells"></div><div class="relative mt-1 h-3 usage-time-track"></div></div>`+
+      `<div class="mt-1 sm:mt-0 sm:text-right"><p class="text-lg font-semibold leading-tight text-slate-800">${fmtPct(limit.used_percent)} <span class="text-sm font-normal text-slate-500">used · ${fmtPct(limit.remaining_percent)} left</span></p><p class="text-[11px] text-slate-400 mt-0.5">${esc(fmtReset(limit.resets_at, Date.now()/1000))}</p></div>`;
+    box.appendChild(row);
     const cells=row.querySelector(".usage-bar-cells");
     const pct=limit.used_percent||0;
     const windowSec=(limit.window_minutes||0)*60;
@@ -282,22 +289,24 @@ function renderUsageBars(root, limits){
       const startAt=resetAt-windowSec;
       timePct=Math.max(0, Math.min(100, ((now-startAt)/windowSec)*100));
     }
+    const isWeekly=(limit.label||"").toLowerCase()==="weekly";
+    const N=usageBlockCount(cells.clientWidth-(isWeekly?30:0));
+    cells.dataset.blocks=N;
     const makeCell=(i)=>{
       const el=document.createElement("div");
-      const used=i<=Math.ceil(pct);
-      const overused=used && timePct!=null && i>Math.ceil(timePct);
+      const used=i<=Math.ceil(pct*N/100-1e-9);
+      const overused=used && timePct!=null && i>Math.ceil(timePct*N/100-1e-9);
       el.className="bar h-5 rounded-[2px] "+(used?(overused?"bg-rose-500":"bg-emerald-500"):"bg-slate-200");
-      el.title=`${limit.label} · ${fmtPct(pct)} used${timePct==null?"":` · ${fmtPct(timePct)} time elapsed`} · block ${i}/100`;
+      el.title=`${limit.label} · ${fmtPct(pct)} used${timePct==null?"":` · ${fmtPct(timePct)} time elapsed`} · block ${i}/${N}`;
       return el;
     };
-    const isWeekly=(limit.label||"").toLowerCase()==="weekly";
     if(isWeekly){
       cells.classList.add("usage-bar-weekly");
       cells.style.gridTemplateColumns="repeat(7,minmax(0,1fr))";
       cells.style.gap="5px";
       for(let day=0;day<7;day++){
-        const start=Math.floor((day*100)/7)+1;
-        const end=Math.floor(((day+1)*100)/7);
+        const start=Math.floor((day*N)/7)+1;
+        const end=Math.floor(((day+1)*N)/7);
         const segment=document.createElement("div");
         segment.className="relative grid gap-[2px]";
         if(day>0) segment.classList.add("usage-day-divider");
@@ -306,8 +315,8 @@ function renderUsageBars(root, limits){
         cells.appendChild(segment);
       }
     }else{
-      cells.style.gridTemplateColumns="repeat(100,minmax(0,1fr))";
-      for(let i=1;i<=100;i++) cells.appendChild(makeCell(i));
+      cells.style.gridTemplateColumns=`repeat(${N},minmax(0,1fr))`;
+      for(let i=1;i<=N;i++) cells.appendChild(makeCell(i));
     }
     const track=row.querySelector(".usage-time-track");
     if(timePct!=null){
@@ -318,16 +327,30 @@ function renderUsageBars(root, limits){
       marker.title=`${limit.label} time pace · ${fmtPct(timePct)} elapsed`;
       track.appendChild(marker);
     }
-    box.appendChild(row);
+  });
+  watchUsageBars(root);
+}
+// Block count follows the measured bar width (>= ~4px per block incl. gap), like Fredy MC's usage meter.
+function usageBlockCount(w){return w>=400||w<=0?100:w>=200?50:25;}
+let usageCache=null, usageRO=null, usageTimer=null;
+function watchBars(){ // one shared debounced observer for usage bars and availability timelines
+  if(!window.ResizeObserver || usageRO) return;
+  usageRO=new ResizeObserver(()=>{
+    clearTimeout(usageTimer);
+    usageTimer=setTimeout(()=>{
+      const stale=[...document.querySelectorAll(".usage-bar-cells")].some(c=>{
+        const w=c.clientWidth-(c.classList.contains("usage-bar-weekly")?30:0);
+        return w>0 && usageBlockCount(w)!=+c.dataset.blocks;});
+      if(stale && usageCache) renderUsage(usageCache.root, usageCache.rows);
+      document.querySelectorAll(".svc-timeline").forEach(t=>{
+        const w=t.clientWidth;
+        if(w>0 && t._tl && timelineDays(w)!=+t.dataset.days) renderTimeline(t._tl.root,t._tl.buckets,t._tl.windowDays);});
+    },150);
   });
 }
-function limitTile(limit){
-  return `<div class="rounded-lg border border-slate-200 bg-white p-3">`+
-    `<p class="text-[11px] uppercase tracking-wide text-slate-400">${esc(limit.label||"")}</p>`+
-    `<p class="text-lg font-semibold mt-0.5 leading-tight text-slate-800">${fmtPct(limit.remaining_percent)} remaining</p>`+
-    `<p class="text-[11px] text-slate-400 mt-0.5">${fmtPct(limit.used_percent)} used</p>`+
-    `<p class="text-[11px] text-slate-400">${fmtReset(limit.resets_at, Date.now()/1000)}</p>`+
-  `</div>`;
+function watchUsageBars(root){
+  watchBars(); if(!usageRO) return;
+  root.querySelectorAll(".usage-bar-cells").forEach(c=>usageRO.observe(c));
 }
 function currentUsageLegend(){
   return `<div class="flex items-center gap-3">`+
@@ -336,40 +359,55 @@ function currentUsageLegend(){
     `<span class="flex items-center gap-1"><span class="h-2 w-2 rounded-sm bg-slate-200"></span>Unused</span>`+
   `</div>`;
 }
+function usageState(cell,limits,now){
+  if(!limits.length) return ["bg-slate-300","Unused","text-slate-400","bg-white border-slate-200"];
+  if(limits.some(l=>(l.used_percent||0)>=100)) return ["bg-rose-500","Depleted","text-rose-600","bg-rose-50 border-rose-200"];
+  if(cell.tone==="muted"){
+    return ["bg-amber-500","Stale","text-amber-600","bg-amber-50 border-amber-200"];
+  }
+  const over=limits.some(l=>{ // same rule as the "Overused" cells: used% ahead of elapsed-time%
+    if(!(l.window_minutes>0 && l.resets_at>0)) return false;
+    const t=Math.max(0,Math.min(100,(now-(l.resets_at-l.window_minutes*60))/(l.window_minutes*60)*100));
+    return Math.ceil(l.used_percent||0)>Math.ceil(t);
+  });
+  if(over) return ["bg-amber-500","Overused","text-amber-600","bg-amber-50 border-amber-200"];
+  return ["bg-emerald-500","Operational","text-emerald-600","bg-emerald-50 border-emerald-200"];
+}
 function renderUsage(root, rows){
-  root.hidden=!rows.length;
-  const box=q(root,".usage-blocks"); box.innerHTML="";
+  usageCache={root,rows};
+  const keys=rows.map(r=>r.cell.account||(r.cell.title||"").split(" · ")[0]||r.name);
+  const wanted=keys.join("|");
+  if(root.dataset.keys!==wanted){
+    root.innerHTML=""; root.dataset.keys=wanted;
+    rows.forEach(()=>root.insertAdjacentHTML("beforeend",document.getElementById("usage-tpl").innerHTML));
+  }
   const now=Date.now()/1000;
-  rows.forEach(({name,cell})=>{
-    const limits=(cell.bars||[]).map(usageLimit);
-    const account=cell.account||(cell.title||"").split(" · ")[0];
-    const ago=cell.as_of?Math.round((now-cell.as_of)/60):null;
-    const captured=ago===null?"":ago<2?"limits just captured":`limits captured ${ago}m ago`;
-    const block=document.createElement("div");
-    block.className="mb-4";
-    block.innerHTML=
-      `<div class="flex items-baseline gap-2.5 mb-3 rounded-lg border border-slate-200 bg-white px-3 py-2">`+
-        `<h3 class="text-base font-semibold">${esc(account)}</h3><span class="text-sm text-slate-500">${esc(name)}</span>`+
-        `<span class="ml-auto text-[11px] ${cell.tone==="muted"?"text-slate-400":"text-slate-500"}">${esc(limits.length?captured:cell.text)}</span>`+
-      `</div>`+
-      (limits.length?
-        `<div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-3">${limits.map(limitTile).join("")}</div>`+
-        `<div class="rounded-lg border border-slate-200 bg-white p-4">`+
-          `<h3 class="text-xs font-semibold text-slate-500">Current usage</h3>`+
-          `<div class="space-y-2 usage-bars pt-4"></div>`+
-          `<div class="flex items-center justify-end text-[11px] text-slate-400">${currentUsageLegend()}</div>`+
-        `</div>`:"");
-    if(limits.length) renderUsageBars(block, limits);
-    box.appendChild(block);
+  rows.forEach(({name,cell},i)=>{
+    const sec=root.children[i], limits=(cell.bars||[]).map(usageLimit), st=usageState(cell,limits,now);
+    const ageSec=cell.as_of?Math.max(0,now-cell.as_of):null;
+    const captured=ageSec===null?"":ageSec<120?"just now":fmtDuration(ageSec)+" ago";
+    q(sec,".svc-head").className="svc-head flex items-center gap-2.5 mb-3 rounded-lg border px-3 py-2 cursor-pointer "+st[3];
+    q(sec,".svc-dot").className="svc-dot h-3 w-3 rounded-full shrink-0 "+st[0];
+    q(sec,".usage-title").textContent=keys[i]+" usage"; q(sec,".usage-agent").textContent=name;
+    const se=q(sec,".svc-state"); se.className="svc-state ml-auto whitespace-nowrap text-sm font-medium text-right "+st[2];
+    se.textContent=st[1];
+    const body=q(sec,".svc-body");
+    body.innerHTML=limits.length?
+      `<div class="rounded-lg border border-slate-200 bg-white p-4">`+
+        `<div class="space-y-4 usage-bars"></div>`+
+        `<div class="flex items-center justify-between text-[11px] text-slate-400 mt-3"><span>${captured}</span>${currentUsageLegend()}</div>`+
+      `</div>`:"";
+    if(limits.length) renderUsageBars(body, limits);
+    initCollapse(sec,"usage:"+keys[i]+(keys.indexOf(keys[i])<i?":"+i:""),1);
   });
 }
 function renderColumns(root,columns){
   const table=q(root,"table"), head=q(root,"thead tr");
   head.querySelectorAll(".plugin-column").forEach(n=>n.remove());
   columns.forEach(c=>{const th=document.createElement("th");th.className="plugin-column text-left font-medium px-2 py-2";th.textContent=c.title;head.insertBefore(th,head.lastElementChild);});
-  const widths=[170,150,260,97,113,...columns.map(()=>100),65];
+  const widths=[170,150,230,97,140,...columns.map(()=>100),65];
   q(root,"colgroup").innerHTML=widths.map(w=>`<col style="width:${w}px">`).join('');
-  table.style.minWidth=(855+columns.length*100)+"px";
+  table.style.minWidth=widths.reduce((a,b)=>a+b)+"px";
 }
 function renderActions(a,table){
   const stopped=a.status==="Stopped (manual)";
@@ -483,13 +521,13 @@ document.addEventListener("click",e=>{
 async function refresh(){
   try{
     const d=await (await fetch("/api/state",{credentials:"same-origin"})).json();
-    document.getElementById('app').style.maxWidth=(900+(d.columns||[]).length*100)+'px';
+    document.getElementById('app').style.maxWidth=(1100+(d.columns||[]).length*100)+'px';
     const agentsRoot=document.querySelector('section[data-svc="agents"]');
     renderAgents(agentsRoot, d.agents, null, d.columns||[]); initCollapse(agentsRoot,"agents",0);
-    const usageRoot=document.getElementById("usage-section");
+    const usageRoot=document.getElementById("usage-sections");
     const usageRows=d.usage_view==="section"?[...d.agents,...(d.agent_tables||[]).flatMap(t=>t.rows)]
       .filter(a=>(a.cells||{})["usage:limits"]).map(a=>({name:a.name,cell:a.cells["usage:limits"]})):[];
-    renderUsage(usageRoot, usageRows); initCollapse(usageRoot,"usage",1);
+    renderUsage(usageRoot, usageRows);
     const tables=document.getElementById("plugin-tables");
     const wanted=(d.agent_tables||[]).map(t=>t.id).join("|");
     if(tables.dataset.keys!==wanted){
@@ -561,7 +599,7 @@ document.addEventListener("click", async e=>{
 refresh(); setInterval(refresh, POLL*1000);
 </script></body></html>"""
 
-PAGE=PAGE.replace('AGENT_TABLES',
+PAGE=PAGE.replace('USAGE_SVC',USAGE_SVC).replace('AGENT_TABLES',
     AGENT_TABLE.replace('KEY','agents').replace('HIDDEN','').replace('TITLE','Persistent Agents')
         .replace('NOTE','tmux sessions running an agent, linked by their <code>--resume</code> session id')+
     '<div id="plugin-tables"></div>'+USAGE_SECTION+
