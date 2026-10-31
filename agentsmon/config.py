@@ -130,8 +130,11 @@ def discover_modules(cfg: dict) -> list[dict]:
 def save(cfg: dict, path: Path | None = None) -> Path:
     path = path or DEFAULT_PATH
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(cfg, indent=2, ensure_ascii=False), encoding="utf-8")
-    os.chmod(path, 0o600)
+    # Atomic replace: a crash or a concurrent reader never sees a half-written config.
+    tmp = path.with_name(path.name + ".tmp")
+    tmp.write_text(json.dumps(cfg, indent=2, ensure_ascii=False), encoding="utf-8")
+    os.chmod(tmp, 0o600)
+    tmp.replace(path)
     return path
 
 

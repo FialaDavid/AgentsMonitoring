@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Saving the configuration is atomic (temporary file, then replace), so a crash while saving cannot leave a half-written `config.json`.
+
 ## 0.3.12 (2026-10-22)
 
 - The login hint for a Claude agent quotes the session name, so `tmux attach -t "T - Claude"` works when pasted. A test checks every attach hint.
