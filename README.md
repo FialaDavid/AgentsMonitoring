@@ -11,6 +11,14 @@ Agents Monitoring is a tiny, dependency-free supervisor. It **auto-detects** wha
 your tmux sessions (you don't declare anything — it looks), shows a **live status page**, and
 **restarts** anything that dies — surviving logout and reboot.
 
+> **About this fork.** This is a maintained fork of
+> [petrludwig-collab/AgentsMonitoring](https://github.com/petrludwig-collab/AgentsMonitoring).
+> On top of upstream it adds support for
+> [agent2telegramtopic](https://github.com/FialaDavid/agent2telegramtopic) bridges (bridge health
+> and per-topic sessions shown read-only under their master agent), credential-free usage from
+> rotating Codex rollouts and a2tt Claude rate-limit files, and correct pinning of Claude Code
+> sessions after `/clear`. See [CHANGELOG.md](CHANGELOG.md).
+
 ```
 tmux sessions  ⇄  Agents Monitoring  ⇄  status page + keepalive
 ```
