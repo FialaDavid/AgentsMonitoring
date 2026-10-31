@@ -109,6 +109,21 @@ that file exists and its `updated_at` is older than three heartbeats plus 30 s, 
 `stale` (alive but hung) and counts as an outage. A missing or unreadable file means the process
 alone decides.
 
+To show the topics of an a2tt bridge on the dashboard, name the agent whose row should carry
+them in `master` (an `agents[]` name; `status_file` is only needed if the layout differs):
+
+```json
+{"daemons": [{"name": "Telegram Bridge: Bot (topics)", "kind": "a2tt", "master": "my-agent",
+              "bridge_config": "/path/to/bots/Bot/config.json", "pattern": "…", "restart": "…"}]}
+```
+
+Each topic is listed read-only under that agent: title (or `topic <id>`), agent kind, status
+(`live`, `parked`, `waiting`) with alive, busy or idle, time since last activity and last compaction,
+and context tokens with the percentage when the window is known. There are no buttons: topics are
+never restarted or stopped by Agents Monitoring. When the bridge stops updating its status file the
+topics are marked `stale`. A missing file shows nothing; an unknown `master` shows nothing and the
+bridge card says `master <name> not found`.
+
 Keep the dashboard on localhost by default. HTTP Basic Auth over unencrypted
 HTTP exposes credentials on the network; use an SSH tunnel or Tailscale HTTPS
 before making it reachable remotely.

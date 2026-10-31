@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- An a2tt bridge entry may name a `master` agent: the bridge's topics (from its status file) are listed read-only under that agent's row with kind, status, busy/idle, last activity and compaction age, and context use. Stale bridges mark them stale; an unknown master is reported on the bridge card. No actions are offered for topics.
 - Agent2TelegramTopic (`a2tt`) bridges are monitored next to Agent2Telegram ones: bridge entries gain `kind` (`a2t` default, or `a2tt`), `agentsmon add --non-interactive --bridge-kind a2tt` registers one, and the "Telegram Bridge" card shows each configured bridge as `running`, `down` or `stale`. An a2tt bridge whose status file stopped updating is `stale` and counts as an outage; a kind that is not configured never does.
 - Saving the configuration is atomic (temporary file, then replace), so a crash while saving cannot leave a half-written `config.json`.
 - Keepalive no longer aborts its pass when a tmux command hangs or tmux is missing; the failure is logged and the remaining agents are still supervised.

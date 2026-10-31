@@ -312,7 +312,22 @@ function renderAgents(root, agents, summary=null, columns=[]){
       columns.map(c=>`<td class="px-2 py-1.5 text-xs">${renderCell((a.cells||{})[c.id])}</td>`).join("")+
       `<td class="px-2 py-1.5 text-right whitespace-nowrap">${renderActions(a, root.dataset.svc)}</td>`;
     tb.appendChild(tr);
+    (a.topics||[]).forEach(t=>tb.appendChild(renderTopic(t,a.topics_stale,6+columns.length)));
   });
+}
+// Read-only sub-row for one topic of a bridge, shown under its master agent.
+function renderTopic(t,stale,span){
+  const tr=document.createElement("tr"); tr.className="border-b border-slate-100 last:border-0 topic-row";
+  const live=t.alive&&!stale, dot=stale?"bg-amber-500":(live?"bg-emerald-500":"bg-slate-300");
+  const ago=(label,s)=>s==null?"":`<span>${label} ${fmtDuration(s)} ago</span>`;
+  const ctx=t.ctx_tokens==null?"":`<span>ctx ${t.ctx_tokens.toLocaleString()}${t.ctx_percent!=null?" ("+t.ctx_percent+"%)":""}</span>`;
+  const state=[t.status||"?",t.alive?"alive":"not alive",t.busy?"busy":"idle"].join(" · ");
+  const parts=[`<span class="font-medium text-slate-600">${esc(t.title||"topic "+t.thread)}</span>`,
+    t.agent?`<span>${esc(t.agent)}</span>`:"",
+    `<span class="inline-flex items-center gap-1.5"><span class="h-2 w-2 rounded-full ${dot} shrink-0"></span>${stale?"stale · ":""}${esc(state)}</span>`,
+    ago("active",t.last_activity_age),ago("compacted",t.last_compact_age),ctx].filter(Boolean);
+  tr.innerHTML=`<td colspan="${span}" class="pl-8 pr-2 py-1 text-xs ${stale?"text-slate-400":"text-slate-500"}"><div class="flex flex-wrap gap-x-4 gap-y-0.5">${parts.join("")}</div></td>`;
+  return tr;
 }
 // Collapsible blocks. The first OPEN_BY_DEFAULT blocks (agents table + the first service cards)
 // start expanded, the rest fold to their header line; a click on any header toggles it and the
@@ -517,6 +532,14 @@ def _agents_state(cfg: dict) -> list[dict]:
             if old == a['session_id']:
                 a['resume_cmd'] = ov['restart']
     agents = detect.pinned_agents(cfg.get("pinned_daemons", [])) + tmux
+    from . import bridges
+    for spec in bridges.master_specs(cfg):
+        # Topics of an a2tt bridge ride on the row of its master agent; read-only, no actions.
+        master = next((a for a in agents if a.get("name") == spec["master"]), None)
+        found = bridges.topics(spec) if master else None
+        if found:
+            master["topics"] = master.get("topics", []) + found["items"]
+            master["topics_stale"] = master.get("topics_stale", False) or found["stale"]
     # Telegram deep-link icon. Two sources, explicit wins:
     #  1) an explicit `telegram` field on an agent/daemon config entry (for daemons with their OWN
     #     native bot, e.g. OpenClaw/Hermes) — value is a @username or a full t.me URL;

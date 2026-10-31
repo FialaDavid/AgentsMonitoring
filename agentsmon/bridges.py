@@ -224,6 +224,45 @@ def states(cfg):
     return [(d, *state(d)) for d in cfg.get('daemons', []) if d.get('bridge_config') and d.get('enabled', True)]
 
 
+def _count(value):
+    return value if type(value) is int and value >= 0 else None
+
+
+def _age(stamp, now):
+    return max(0, int(now-stamp)) if type(stamp) in (int, float) else None
+
+
+def topics(spec, now=None):
+    """Read-only view of the topics (lanes) an a2tt bridge reports, or None without a status file.
+    Only display fields are kept; chat ids, paths and session names are dropped."""
+    data = read_status(spec)
+    if data is None or not isinstance(data.get('lanes'), list):
+        return None
+    now = time.time() if now is None else now
+    items = []
+    for lane in data['lanes'][:100]:
+        if not isinstance(lane, dict):
+            continue
+        used, window = _count(lane.get('ctx_tokens')), _count(lane.get('ctx_window'))
+        title = lane.get('title')
+        items.append({'thread':lane.get('thread'),
+                      'title':' '.join(title.split())[:80] if isinstance(title, str) else None,
+                      'agent':str(lane.get('agent') or '')[:30],
+                      'status':str(lane.get('status') or '')[:20],
+                      'alive':lane.get('alive') is True, 'busy':lane.get('busy') is True,
+                      'last_activity_age':_age(lane.get('last_activity'), now),
+                      'last_compact_age':_age(lane.get('last_compact'), now),
+                      'ctx_tokens':used, 'ctx_window':window,
+                      'ctx_percent':round(100*used/window, 1) if used is not None and window else None})
+    return {'items':items, 'stale':stale_seconds(data, now) is not None}
+
+
+def master_specs(cfg):
+    """Enabled a2tt bridges that name the agent whose row should carry their topics."""
+    return [d for d in cfg.get('daemons', []) if d.get('bridge_config') and d.get('enabled', True)
+            and kind_of(d) == 'a2tt' and d.get('master')]
+
+
 def health(cfg):
     """(up, detail) for the shared card; None when no bridge is configured."""
     found = states(cfg)
@@ -235,6 +274,10 @@ def health(cfg):
         names = [d['name'] for d, st, _ in found if st == label]
         if names:
             detail += f'; {label}: '+', '.join(names)
+    known = {a.get('name') for a in cfg.get('agents', [])}
+    for d in master_specs(cfg):
+        if d['master'] not in known:
+            detail += f"; master {d['master']} not found"
     return len(good) == len(found), detail
 
 
