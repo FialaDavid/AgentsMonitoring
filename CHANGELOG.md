@@ -6,6 +6,7 @@
 - Keepalive no longer aborts its pass when a tmux command hangs or tmux is missing; the failure is logged and the remaining agents are still supervised.
 - The dashboard honours an agent's `label` config key as the displayed model label, in addition to `tag` (`tag` wins if both are set).
 - A Codex agent started with `--profile NAME` shows that profile's model (from `[profiles.NAME]` in `config.toml` or a `NAME.config.toml` beside it) when its rollout and command line do not name one, instead of the shared default model.
+- Usage plugin: a source may use `glob` instead of `path` to read the newest matching file (Codex starts a new rollout per session). A `claude-statusline` file may hold `five_hour`/`seven_day` at top level, and its `captured_at` decides staleness.
 
 ## 0.3.12 (2026-10-22)
 

@@ -264,6 +264,25 @@ The normal interactive installer behavior is unchanged.
 
 ---
 
+### Usage from local rate-limit files
+
+The built-in `usage_plugin` shows quota bars from files only (no tokens, no network). A Codex
+rollout changes with every session, so point a source at the newest one with `glob`; a Claude
+rate-limit JSON that some tool keeps up to date works as `claude-statusline`:
+
+```json
+{
+  "usage_plugin": {
+    "sources": {
+      "my-codex-agent":  {"format": "codex-rollout", "glob": "~/.codex/sessions/**/rollout-*.jsonl", "account": "Team"},
+      "my-claude-agent": {"format": "claude-statusline", "path": "/path/to/bot/state/Bot.claude_rate_limits.json", "account": "Work"}
+    }
+  }
+}
+```
+
+The keys are the dashboard rows to attach the bars to. Details in [docs/PLUGINS.md](docs/PLUGINS.md).
+
 ## How detection works
 
 Agents live in **tmux**, so for every session we walk the pane process tree and classify it by

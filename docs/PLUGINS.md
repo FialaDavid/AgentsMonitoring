@@ -154,11 +154,19 @@ No outbound network or account guessing. Configure explicit row IDs and source f
   "usage_plugin": {
     "sources": {
       "work-claude": {"format": "claude-statusline", "path": "/path/to/statusline.json", "account": "Work"},
-      "example:workers:one": {"format": "codex-rollout", "path": "/path/to/rollout.jsonl", "account": "Team"}
+      "example:workers:one": {"format": "codex-rollout", "path": "/path/to/rollout.jsonl", "account": "Team"},
+      "example:workers:two": {"format": "codex-rollout", "glob": "~/.codex/sessions/**/rollout-*.jsonl", "account": "Team"}
     }
   }
 }
 ```
+
+Codex starts a new rollout file for every session, so a fixed `path` goes stale. Use `glob`
+instead of `path` to read the newest matching file (any format; `**` matches directories).
+Of the five newest matches, the first that holds a reading is used, so a session that has not
+answered yet does not blank the column. A Claude file may keep the windows at top level
+(`five_hour`/`seven_day` next to an optional `captured_at`) instead of under `rate_limits`; if
+`captured_at` is present it, not the file time, decides staleness.
 
 Supported formats: Claude statusline JSON with `rate_limits.five_hour/seven_day`, Codex
 rollout JSONL `payload.rate_limits.primary/secondary`, manually supplied ChatGPT-compatible

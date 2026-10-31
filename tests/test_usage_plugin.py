@@ -1,4 +1,5 @@
 import json
+import os
 from pathlib import Path
 import tempfile
 import time
@@ -29,3 +30,50 @@ class AccountUsage(unittest.TestCase):
                 'primary':{'used_percent':42,'window_minutes':180,'resets_at':2_000_000_000}}}})+'\n')
             result=usage.read_source({'path':str(p),'format':'codex-rollout'},1_800_000_000)
             self.assertEqual(result['bars'][0]['label'],'3h')
+
+
+class RotatingAndTopLevelSources(unittest.TestCase):
+    def _rollout(self, path, pct, mtime):
+        path.write_text(json.dumps({'timestamp': '2026-10-15T12:00:00Z', 'payload': {'rate_limits': {
+            'primary': {'used_percent': pct, 'window_minutes': 300, 'resets_at': 2_000_000_000}}}})+'\n')
+        os.utime(path, (mtime, mtime))
+
+    def test_glob_reads_the_newest_rollout(self):
+        with tempfile.TemporaryDirectory() as d:
+            self._rollout(Path(d)/'rollout-old.jsonl', 10, 1000)
+            self._rollout(Path(d)/'rollout-new.jsonl', 55, 2000)
+            spec = {'glob': str(Path(d)/'rollout-*.jsonl'), 'format': 'codex-rollout'}
+            self.assertEqual(usage.read_source(spec, 1_800_000_000)['bars'][0]['percent'], 55)
+
+    def test_newest_rollout_without_a_reading_falls_back_to_the_previous(self):
+        with tempfile.TemporaryDirectory() as d:
+            self._rollout(Path(d)/'rollout-old.jsonl', 10, 1000)
+            young = Path(d)/'rollout-young.jsonl'
+            young.write_text('{"type":"session_meta"}\n')
+            os.utime(young, (2000, 2000))
+            spec = {'glob': str(Path(d)/'rollout-*.jsonl'), 'format': 'codex-rollout'}
+            self.assertEqual(usage.read_source(spec, 1_800_000_000)['bars'][0]['percent'], 10)
+
+    def test_glob_without_a_match_is_unavailable_not_a_crash(self):
+        with tempfile.TemporaryDirectory() as d:
+            result = usage.collect({}, {'sources': {'A': {'glob': str(Path(d)/'none-*.jsonl'),
+                                                          'format': 'codex-rollout'}}})
+            self.assertEqual(result['patches'][0]['cells']['limits']['text'], 'Unavailable')
+
+    def test_statusline_file_with_windows_at_top_level(self):
+        with tempfile.TemporaryDirectory() as d:
+            p = Path(d)/'limits.json'
+            now = time.time()
+            p.write_text(json.dumps({'captured_at': now, 'five_hour': None,
+                                     'seven_day': {'used_percentage': 40, 'resets_at': int(now)+9000}}))
+            result = usage.read_source({'path': str(p), 'format': 'claude-statusline'}, now)
+            self.assertEqual([(b['label'], b['percent']) for b in result['bars']], [('7d', 40)])
+            self.assertEqual(result['text'], '')
+
+    def test_captured_at_decides_staleness_not_file_mtime(self):
+        with tempfile.TemporaryDirectory() as d:
+            p = Path(d)/'limits.json'
+            now = time.time()
+            p.write_text(json.dumps({'captured_at': now-3600,
+                                     'seven_day': {'used_percentage': 40, 'resets_at': int(now)+9000}}))
+            self.assertEqual(usage.read_source({'path': str(p), 'format': 'claude-statusline'}, now)['text'], 'Cached')

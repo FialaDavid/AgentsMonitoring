@@ -4,6 +4,7 @@ Read local usage/status-line snapshots only. No OAuth token reads or network
 requests; never infer that all agents from one vendor share an account.
 """
 from datetime import datetime
+import glob
 import json
 import math
 from pathlib import Path
@@ -24,9 +25,24 @@ def window(label, pct, reset, now):
             'title':('Resets '+datetime.fromtimestamp(reset).astimezone().isoformat()) if reset else 'Reset time unavailable'}
 
 
+def candidates(spec):
+    """The file to read, or with ``glob`` the newest few matches (rollouts rotate per session)."""
+    if 'glob' not in spec: return [Path(spec['path']).expanduser()]
+    files=sorted((Path(f) for f in glob.glob(str(Path(spec['glob']).expanduser()),recursive=True)),
+                 key=lambda f:f.stat().st_mtime,reverse=True)
+    if not files: raise ValueError('No file matches')
+    return files[:5]
+
+
 def read_source(spec, now):
-    path=Path(spec['path']).expanduser()
-    kind=spec['format']
+    error=ValueError('No usage snapshot')
+    for path in candidates(spec):
+        try: return read_file(path,spec['format'],spec,now)
+        except (OSError,ValueError) as exc: error=exc   # a young session may not have a reading yet
+    raise error
+
+
+def read_file(path, kind, spec, now):
     with path.open('rb') as stream:
         if kind=='codex-rollout':
             stream.seek(max(0,stream.seek(0,2)-2_000_000))
@@ -44,7 +60,10 @@ def read_source(spec, now):
         if data is None: raise ValueError('No usage snapshot')
         pairs=[('5h','primary','used_percent','resets_at'),('7d','secondary','used_percent','resets_at')]
     elif kind=='claude-statusline':
-        data=json.loads(raw).get('rate_limits') or {}
+        doc=json.loads(raw)
+        # Also accept a file that holds the windows at top level, as some writers do.
+        data=doc.get('rate_limits') or doc
+        stamp=epoch(doc.get('captured_at')) or stamp
         pairs=[('5h','five_hour','used_percentage','resets_at'),('7d','seven_day','used_percentage','resets_at')]
     elif kind=='chatgpt-snapshot':
         data=json.loads(raw).get('rate_limit') or {}
