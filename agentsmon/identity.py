@@ -44,10 +44,35 @@ def _record(path, kind, uuid_re):
     return None
 
 
+def _claude_session_file(row, detect, now):
+    """Session id Claude Code itself records for this process, else None.
+
+    Claude Code writes ``~/.claude/sessions/<pid>.json`` for each running interactive process
+    and rewrites ``sessionId`` when the conversation rotates (``/clear``), so it is the one
+    source that cannot lag behind. It counts only for this very process: pid and cwd must
+    match and ``startedAt`` must fall inside the process lifetime (a reused pid is older).
+    Transcript heuristics cannot see a rotation, so this wins over them when present.
+    """
+    found = set()
+    if row['started'] is None or not row['cwd']:
+        return None
+    for pid in row['pids']:
+        try:
+            data = json.loads((Path.home()/'.claude/sessions'/f'{pid}.json').read_text(encoding='utf-8'))
+            started = data['startedAt']/1000
+            if (data['pid'] == pid and os.path.realpath(data['cwd']) == row['cwd']
+                    and row['started']-2 <= started <= now+2
+                    and detect.UUID_RE.fullmatch(data['sessionId'])):
+                found.add(data['sessionId'])
+        except (OSError, ValueError, KeyError, TypeError, AttributeError):
+            continue
+    return next(iter(found)) if len(found) == 1 else None
+
+
 def resolve(rows, detect, now):
     """Resolve all sessions together; a candidate claimed twice stays unresolved.
 
-    Proof order: explicit resume argv, process-held transcript/presence lock, unique
+    Proof order: the process's own Claude Code session file, explicit resume argv, process-held transcript/presence lock, unique
     session metadata within the first minute of a fresh process. Closely overlapping
     process starts are ambiguous (ps start-time precision is only one second).
     Finally, a sole agent of its kind in a directory may use that directory's last
@@ -73,6 +98,12 @@ def resolve(rows, detect, now):
             record = _record(path, kind, detect.UUID_RE)
             if record:
                 records[(kind, record['id'])] = record
+    for row in rows:
+        if row['kind'] == 'claude-code':
+            sid = _claude_session_file(row, detect, now)
+            if sid:
+                row['session_id'] = sid
+                row['session_file'] = True
     for row in rows:
         if row['session_id'] or row['kind'] not in detect.RESUME_TEMPLATES:
             continue
@@ -109,6 +140,8 @@ def resolve(rows, detect, now):
             row['identity_conflict'] = True
         rec = records.get((row['kind'], sid))
         row['transcript'] = rec['path'] if rec else None
+        if sid and not rec and row.get('session_file'):
+            row['transcript'] = next((str(p) for p in (Path.home()/'.claude/projects').glob('*/'+sid+'.jsonl')), None)
 
 
 def _single_directory_fallback(rows, detect):

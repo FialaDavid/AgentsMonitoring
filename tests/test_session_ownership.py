@@ -125,6 +125,33 @@ class SessionOwnership(unittest.TestCase):
         self.assertNotIn('--continue', resumed['restart'])
         self.assertNotIn('restart_warning', resumed)
 
+    def session_file(self, pid, sid, started, cwd='/work/shared'):
+        path = self.home/'.claude/sessions'/f'{pid}.json'
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps({'pid':pid, 'sessionId':sid, 'cwd':cwd,
+                                    'startedAt':int(started*1000)}))
+
+    def test_claude_session_file_beats_transcript_of_rotated_session(self):
+        # /clear gave the running process a new conversation; the first one still looks
+        # like the process's own by its creation time.
+        self.commands[101] = 'claude'
+        self.rollout(self.ids[0], 299, 'claude')
+        self.rollout(self.ids[1], 50, 'claude')
+        self.session_file(101, self.ids[1], self.now-299)
+        with self.single():
+            row = detect.discover_agents()[0]
+        self.assertEqual(row['session_id'], self.ids[1])
+        self.assertIn(self.ids[1], row['resume_cmd'])
+
+    def test_claude_session_file_of_another_process_is_ignored(self):
+        self.commands[101] = 'claude'
+        self.rollout(self.ids[0], 299, 'claude')
+        self.rollout(self.ids[1], 50, 'claude')
+        self.session_file(101, self.ids[1], self.now-5000)  # reused pid, older process
+        with self.single():
+            row = detect.discover_agents()[0]
+        self.assertEqual(row['session_id'], self.ids[0])
+
     def test_single_codex_uses_latest_old_rollout_and_its_model(self):
         self.commands[101] = 'codex resume --last'
         path = self.rollout(self.ids[0], 1000)
