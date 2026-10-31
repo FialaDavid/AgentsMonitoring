@@ -47,6 +47,15 @@ def _log(msg: str) -> None:
         pass
 
 
+def _run_safe(cmd: list[str], **kwargs) -> None:
+    """``subprocess.run`` that never raises: a hung or missing tmux must not abort the whole pass
+    and skip every agent still queued behind it."""
+    try:
+        subprocess.run(cmd, **kwargs)
+    except (subprocess.TimeoutExpired, OSError) as exc:
+        _log(f"command failed: {' '.join(cmd)} -> {type(exc).__name__}: {exc}")
+
+
 def heartbeat_path() -> Path:
     return config.state_dir() / "keepalive_heartbeat"
 
@@ -102,16 +111,16 @@ def _start(agent: dict, tmux_bin: str, recreate: bool = False) -> None:
     if recreate:
         # The session survives but the agent won't relaunch into it (the pane is stuck in a
         # half-dead state). Kill it so it's recreated clean instead of send-keys'ing into the mess.
-        subprocess.run([tmux_bin, "kill-session", "-t", name], capture_output=True, timeout=10)
+        _run_safe([tmux_bin, "kill-session", "-t", name], capture_output=True, timeout=10)
         time.sleep(0.5)
     if name not in {s["name"] for s in detect.tmux_sessions()}:
-        subprocess.run([tmux_bin, "new-session", "-d", "-s", name, "-c", cwd],
-                       capture_output=True, timeout=10)
+        _run_safe([tmux_bin, "new-session", "-d", "-s", name, "-c", cwd],
+                  capture_output=True, timeout=10)
     if cmd:
         # Small settle so the shell is ready to receive the command.
         time.sleep(0.5)
-        subprocess.run([tmux_bin, "send-keys", "-t", name, cmd, "Enter"],
-                       capture_output=True, timeout=10)
+        _run_safe([tmux_bin, "send-keys", "-t", name, cmd, "Enter"],
+                  capture_output=True, timeout=10)
 
 
 def tick(cfg: dict) -> int:
