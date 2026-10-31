@@ -88,6 +88,14 @@ class Page(unittest.TestCase):
         self.assertNotIn('<button', body)
         self.assertNotIn('data-act', body)
 
+    def test_topic_row_uses_plain_words(self):
+        body = dashboard.PAGE[dashboard.PAGE.index('function renderTopic'):]
+        body = body[:body.index('// Collapsible blocks')]
+        for text in ('"running"', '"not running"', 'last activity', 'context ', 'compacted'):
+            self.assertIn(text, body)
+        self.assertNotIn('"not alive"', body)
+        self.assertNotIn('ctx ', body)
+
 
 if __name__ == '__main__':
     unittest.main()

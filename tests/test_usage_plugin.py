@@ -76,4 +76,19 @@ class RotatingAndTopLevelSources(unittest.TestCase):
             now = time.time()
             p.write_text(json.dumps({'captured_at': now-3600,
                                      'seven_day': {'used_percentage': 40, 'resets_at': int(now)+9000}}))
-            self.assertEqual(usage.read_source({'path': str(p), 'format': 'claude-statusline'}, now)['text'], 'Cached')
+            result = usage.read_source({'path': str(p), 'format': 'claude-statusline'}, now)
+            self.assertEqual(result['tone'], 'muted')
+            self.assertEqual(result['as_of'], int(now-3600))
+            self.assertEqual(result['bars'][0]['reset'], int(now)+9000)
+
+    def test_host_keeps_reset_and_as_of_the_page_shows(self):
+        from agentsmon import plugins
+        cell = plugins.cell({'text': '', 'tone': 'muted', 'as_of': 1000,
+                             'bars': [{'label': '5h', 'percent': 39, 'reset': 2000}, {'label': '7d', 'percent': 3}]})
+        self.assertEqual(cell['as_of'], 1000)
+        self.assertEqual([b['reset'] for b in cell['bars']], [2000, None])
+
+    def test_window_reports_reset_epoch_or_none(self):
+        self.assertEqual(usage.window('5h', 39, 2_000_000_000, 100)['reset'], 2_000_000_000)
+        self.assertEqual(usage.window('5h', 39, '2030-01-01T00:00:00Z', 100)['reset'], 1_893_456_000)
+        self.assertIsNone(usage.window('5h', 39, None, 100)['reset'])

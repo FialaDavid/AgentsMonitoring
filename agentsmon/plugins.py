@@ -47,16 +47,18 @@ def objects(value, limit=200):
 
 def cell(value):
     if isinstance(value,str): return {'text':text(value)}
-    if not isinstance(value,dict) or set(value)-{'text','title','tone','bars'}: raise ValueError('Invalid cell')
+    if not isinstance(value,dict) or set(value)-{'text','title','tone','bars','as_of'}: raise ValueError('Invalid cell')
     result={'text':text(value.get('text','')),'title':text(value.get('title',''))}
     if value.get('tone') not in (None,'muted','ok','warning','error'): raise ValueError('Invalid tone')
     result['tone']=value.get('tone')
+    if value.get('as_of') is not None: result['as_of']=number(value['as_of'])
     if 'bars' in value:
         result['bars']=[]
         for b in objects(value['bars'],4):
             pct=number(b['percent'])
             if pct>100: raise ValueError('Invalid percent')
-            result['bars'].append({'label':text(b['label'],30),'percent':pct,'title':text(b.get('title',''))})
+            result['bars'].append({'label':text(b['label'],30),'percent':pct,'title':text(b.get('title','')),
+                                    'reset':None if b.get('reset') is None else number(b['reset'])})
     return result
 
 

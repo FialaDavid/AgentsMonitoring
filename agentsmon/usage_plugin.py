@@ -21,7 +21,7 @@ def window(label, pct, reset, now):
     if type(pct) not in (int,float) or not math.isfinite(pct) or not 0<=pct<=100: return None
     reset=epoch(reset)
     if reset and reset<=now: return None
-    return {'label':label,'percent':round(pct,1),
+    return {'label':label,'percent':round(pct,1),'reset':reset or None,
             'title':('Resets '+datetime.fromtimestamp(reset).astimezone().isoformat()) if reset else 'Reset time unavailable'}
 
 
@@ -79,7 +79,7 @@ def read_file(path, kind, spec, now):
         if b: bars.append(b)
     if not bars: return {'text':'No current reading','tone':'muted','title':'No unexpired usage window'}
     stale=now-stamp>600 or stamp>now+30
-    return {'text':'Cached' if stale else '', 'tone':'muted' if stale else 'ok', 'bars':bars,
+    return {'text':'', 'tone':'muted' if stale else 'ok', 'bars':bars, 'as_of':int(stamp),
             'title':f"{spec.get('account','Explicit source')} · {kind} · {datetime.fromtimestamp(stamp).astimezone().isoformat()}"}
 
 

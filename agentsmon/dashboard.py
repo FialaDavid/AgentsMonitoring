@@ -163,6 +163,9 @@ const VENDOR = { "anthropic":"bg-orange-100 text-orange-700", "openai":"bg-emera
 const NAME_BG = { "red":"bg-rose-100", "gold":"bg-amber-100", "green":"bg-emerald-100", "blue":"bg-sky-100" };
 function fmtDuration(s){if(s==null)return "–";const d=Math.floor(s/86400),h=Math.floor(s%86400/3600),m=Math.floor(s%3600/60);
   return d?`${d}d ${h}h`:h?`${h}h ${m}m`:`${m}m`;}
+function fmtReset(u){
+  const s=u-Date.now()/1000, d=new Date(u*1000), p=n=>String(n).padStart(2,"0");
+  return s<86400?"in "+fmtDuration(Math.max(0,s)):d.toLocaleDateString("en-US",{weekday:"short"})+" "+p(d.getHours())+":"+p(d.getMinutes());}
 function fmtTime(u){return u?new Date(u*1000).toLocaleString():"";}
 function fmtLat(ms){return ms==null?"–":(ms<1?"<1 ms":ms+" ms");}
 function esc(s){return String(s==null?"":s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));}
@@ -231,16 +234,17 @@ function renderRows(root, rows, details=false){
 function renderCell(cell){
   if(!cell) return "–";
   const tones={ok:"text-emerald-600",warning:"text-amber-600",error:"text-rose-600",muted:"text-slate-400"};
-  const bars=(cell.bars||[]).map(b=>`<div title="${esc(b.title)}" class="mb-1"><span>${esc(b.label)} ${b.percent}%</span><div class="h-1 bg-slate-100 rounded"><div class="h-1 rounded ${b.percent>=90?'bg-rose-500':b.percent>=70?'bg-amber-500':'bg-emerald-500'}" style="width:${b.percent}%"></div></div></div>`).join("");
-  return `<span title="${esc(cell.title)}" class="${tones[cell.tone]||''}">${esc(cell.text)}</span>`+bars;
+  const bars=(cell.bars||[]).map(b=>`<div title="${esc(b.title)}" class="mb-1 whitespace-nowrap"><span>${esc(b.label)} ${b.percent}%</span>${b.reset?`<span class="text-slate-400"> · resets ${fmtReset(b.reset)}</span>`:""}<div class="h-1.5 bg-slate-100 rounded"><div class="h-1.5 rounded ${b.percent>=90?'bg-rose-500':b.percent>=70?'bg-amber-500':'bg-emerald-500'}" style="width:${b.percent}%"></div></div></div>`).join("");
+  const text=cell.text||(cell.as_of&&cell.tone==="muted"?"as of "+fmtDuration(Math.max(0,Date.now()/1000-cell.as_of))+" ago":"");
+  return `<span title="${esc(cell.title)}" class="whitespace-nowrap ${tones[cell.tone]||''}">${esc(text)}</span>`+bars;
 }
 function renderColumns(root,columns){
   const table=q(root,"table"), head=q(root,"thead tr");
   head.querySelectorAll(".plugin-column").forEach(n=>n.remove());
   columns.forEach(c=>{const th=document.createElement("th");th.className="plugin-column text-left font-medium px-2 py-2";th.textContent=c.title;head.insertBefore(th,head.lastElementChild);});
-  const widths=[170,105,260,97,113,...columns.map(()=>100),65];
+  const widths=[170,150,260,97,113,...columns.map(()=>170),65];
   q(root,"colgroup").innerHTML=columns.length?widths.map(w=>`<col style="width:${w}px">`).join(''):'<col style="width:21%"><col style="width:13%"><col style="width:32%"><col style="width:12%"><col style="width:14%"><col style="width:8%">';
-  table.style.minWidth=(columns.length?810+columns.length*100:680)+"px";
+  table.style.minWidth=(columns.length?855+columns.length*170:680)+"px";
 }
 function renderActions(a,table){
   const stopped=a.status==="Stopped (manual)";
@@ -304,8 +308,8 @@ function renderAgents(root, agents, summary=null, columns=[]){
     const tg=a.telegram_url?` <a href="${esc(a.telegram_url)}" target="_blank" rel="noopener" title="Open @${esc(a.telegram_bot)} in Telegram" class="inline-flex align-middle ml-1 hover:opacity-70"><svg viewBox="0 0 24 24" class="h-4 w-4" fill="#229ED9"><path d="M9.78 18.65l.28-4.23 7.68-6.92c.34-.31-.07-.46-.52-.19L7.74 13.3 3.64 12c-.88-.25-.89-.86.2-1.3l15.97-6.16c.73-.27 1.43.18 1.15 1.3l-2.72 12.81c-.19.91-.74 1.13-1.5.71L12.6 16.3l-1.99 1.93c-.23.23-.42.42-.83.42z"/></svg></a>`:"";
     const recovery=a.restart_warning?`<br><span class="text-[11px] text-amber-600" title="${esc(a.restart_warning)}">⚠ Fresh conversation</span>`:"";
     tr.innerHTML=
-      `<td class="px-2 py-1.5 font-medium text-slate-700 whitespace-nowrap">${nameCell}${tg}${recovery}</td>`+
-      `<td class="px-2 py-1.5 whitespace-nowrap"><span title="${esc(a.account?'Account: '+a.account:a.label)}" class="inline-block rounded px-1.5 py-0.5 text-[11px] font-medium ${tcls}">${esc(a.label)}</span>${a.metadata_error?'<br><span class="text-[11px] text-amber-600">Incomplete data</span>':""}</td>`+
+      `<td class="px-2 py-1.5 font-medium text-slate-700 whitespace-nowrap" style="text-overflow:ellipsis" title="${esc(a.name)}">${nameCell}${tg}${recovery}</td>`+
+      `<td class="px-2 py-1.5 whitespace-nowrap"><span title="${esc(a.account?a.label+' · Account: '+a.account:a.label)}" class="inline-block rounded px-1.5 py-0.5 text-[11px] font-medium align-middle ${tcls}" style="max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(a.label)}</span>${a.metadata_error?'<br><span class="text-[11px] text-amber-600">Incomplete data</span>':""}</td>`+
       `<td class="px-2 py-1.5">${sid}</td>`+
       `<td class="px-2 py-1.5 text-slate-500 text-xs whitespace-nowrap" title="${esc(a.status_detail||'')}">${a.age!=null?"ago "+fmtDuration(a.age):"–"}</td>`+
       `<td class="px-2 py-1.5" title="${esc(statusTip)}"><span class="inline-flex items-center gap-1.5 whitespace-nowrap ${stCls}"><span class="h-2 w-2 rounded-full ${dot} shrink-0"></span><span class="flex flex-col">${esc(statusTxt)}</span></span></td>`+
@@ -318,14 +322,16 @@ function renderAgents(root, agents, summary=null, columns=[]){
 // Read-only sub-row for one topic of a bridge, shown under its master agent.
 function renderTopic(t,stale,span){
   const tr=document.createElement("tr"); tr.className="border-b border-slate-100 last:border-0 topic-row";
-  const live=t.alive&&!stale, dot=stale?"bg-amber-500":(live?"bg-emerald-500":"bg-slate-300");
   const ago=(label,s)=>s==null?"":`<span>${label} ${fmtDuration(s)} ago</span>`;
-  const ctx=t.ctx_tokens==null?"":`<span>ctx ${t.ctx_tokens.toLocaleString()}${t.ctx_percent!=null?" ("+t.ctx_percent+"%)":""}</span>`;
-  const state=[t.status||"?",t.alive?"alive":"not alive",t.busy?"busy":"idle"].join(" · ");
+  const k=n=>n<1000?String(n):Math.round(n/1000)+"k";
+  const ctx=t.ctx_tokens?`<span>context ${k(t.ctx_tokens)}${t.ctx_percent!=null?" ("+t.ctx_percent+"%)":""}</span>`:"";
+  const dotted=(c,txt)=>`<span class="h-2 w-2 rounded-full ${c} shrink-0"></span>${txt}`;
+  const run=t.status==="live"?(t.alive?["bg-emerald-500","running"]:["bg-rose-500","not running"]):
+    t.status==="parked"?["bg-slate-300","parked"]:t.status==="waiting"?["bg-amber-500","waiting"]:["bg-slate-300",t.status||"?"];
+  const state=`<span class="inline-flex items-center gap-1.5">${dotted(stale?"bg-amber-500":run[0],(stale?"stale · ":"")+esc(run[1]))}`+
+    (t.status==="live"&&t.alive&&t.busy?` · ${dotted("bg-amber-500","busy")}`:"")+`</span>`;
   const parts=[`<span class="font-medium text-slate-600">${esc(t.title||"topic "+t.thread)}</span>`,
-    t.agent?`<span>${esc(t.agent)}</span>`:"",
-    `<span class="inline-flex items-center gap-1.5"><span class="h-2 w-2 rounded-full ${dot} shrink-0"></span>${stale?"stale · ":""}${esc(state)}</span>`,
-    ago("active",t.last_activity_age),ago("compacted",t.last_compact_age),ctx].filter(Boolean);
+    state,ago("last activity",t.last_activity_age),ctx,ago("compacted",t.last_compact_age)].filter(Boolean);
   tr.innerHTML=`<td colspan="${span}" class="pl-8 pr-2 py-1 text-xs ${stale?"text-slate-400":"text-slate-500"}"><div class="flex flex-wrap gap-x-4 gap-y-0.5">${parts.join("")}</div></td>`;
   return tr;
 }
@@ -352,7 +358,7 @@ document.addEventListener("click",e=>{
 async function refresh(){
   try{
     const d=await (await fetch("/api/state",{credentials:"same-origin"})).json();
-    document.getElementById('app').style.maxWidth=(850+(d.columns||[]).length*100)+'px';
+    document.getElementById('app').style.maxWidth=(900+(d.columns||[]).length*170)+'px';
     const agentsRoot=document.querySelector('section[data-svc="agents"]');
     renderAgents(agentsRoot, d.agents, null, d.columns||[]); initCollapse(agentsRoot,"agents",0);
     const tables=document.getElementById("plugin-tables");
