@@ -61,12 +61,12 @@ AGENT_TABLE = r"""
     </div>
     <div class="svc-body">
     <div class="rounded-lg border border-slate-200 bg-white overflow-x-auto">
-      <table class="w-full text-sm" style="table-layout:fixed;min-width:852px"><colgroup><col style="width:170px"><col style="width:150px"><col style="width:230px"><col style="width:97px"><col style="width:140px"><col style="width:65px"></colgroup><thead>
+      <table class="agent-table w-full text-sm" style="table-layout:fixed;min-width:852px"><colgroup><col style="width:170px"><col style="width:150px"><col class="mobile-hide" style="width:230px"><col class="mobile-hide" style="width:97px"><col style="width:140px"><col style="width:65px"></colgroup><thead>
         <tr class="text-[11px] uppercase tracking-wide text-slate-400 border-b border-slate-100">
           <th class="text-left font-medium px-2 py-2">Agent</th>
           <th class="text-left font-medium px-2 py-2">Model</th>
-          <th class="text-left font-medium px-2 py-2">Session ID / Port</th>
-          <th class="text-left font-medium px-2 py-2">Started</th>
+          <th class="mobile-hide text-left font-medium px-2 py-2">Session ID / Port</th>
+          <th class="mobile-hide text-left font-medium px-2 py-2">Started</th>
           <th class="text-left font-medium px-2 py-2">Status</th>
           <th class="text-right font-medium px-2 py-2"></th>
         </tr></thead>
@@ -97,7 +97,7 @@ PAGE = r"""<!DOCTYPE html><html lang="en"><head>
 <title>Agents Monitoring</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🤖</text></svg>">
 <script src="/static/tailwind.js"></script>
-<style>.bar{transition:opacity .15s ease}.bar:hover{opacity:.65}.usage-day-divider::before{content:"";position:absolute;left:-3px;top:-4px;bottom:-4px;width:1px;border-radius:1px;background:#94a3b8}.copied-flash{color:#059669!important;transition:color .1s}#toast{transition:opacity .2s ease}.agent-rows td{overflow:hidden}.sid{display:block;overflow:hidden;text-overflow:ellipsis}.topic-grid{display:grid;grid-template-columns:12rem 6rem 9.5rem 9rem 10rem;align-items:center;gap:.25rem .75rem}.topic-cell{min-width:0;overflow-wrap:anywhere}.topic-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.topic-state{display:inline-flex;align-items:center;gap:.375rem;white-space:nowrap}@media(max-width:600px){.topic-grid{width:calc(100vw - 3rem);grid-template-columns:repeat(2,minmax(0,1fr));gap:.25rem .5rem}}</style>
+<style>@media(max-width:640px){.agent-table .mobile-hide{display:none}.agent-table{min-width:0!important;width:100%!important}.agent-table col:nth-child(1){width:25%!important}.agent-table col:nth-child(2){width:25%!important}.agent-table col:nth-child(5){width:30%!important}.agent-table col:last-child{width:20%!important}}.bar{transition:opacity .15s ease}.bar:hover{opacity:.65}.usage-day-divider::before{content:"";position:absolute;left:-3px;top:-4px;bottom:-4px;width:1px;border-radius:1px;background:#94a3b8}.copied-flash{color:#059669!important;transition:color .1s}#toast{transition:opacity .2s ease}.agent-rows td{overflow:hidden}.sid{display:block;overflow:hidden;text-overflow:ellipsis}.topic-grid{display:grid;grid-template-columns:12rem 6rem 9.5rem 9rem 10rem;align-items:center;gap:.25rem .75rem}.topic-cell{min-width:0;overflow-wrap:anywhere}.topic-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.topic-state{display:inline-flex;align-items:center;gap:.375rem;white-space:nowrap}@media(max-width:600px){.topic-grid{width:calc(100vw - 3rem);grid-template-columns:repeat(2,minmax(0,1fr));gap:.25rem .5rem}}</style>
 </head><body class="bg-slate-50 text-slate-800 antialiased">
 <div id="toast" class="fixed left-1/2 bottom-5 -translate-x-1/2 bg-slate-800 text-white text-sm px-2 py-1.5 rounded-md shadow-lg opacity-0 pointer-events-none" style="z-index:50">&nbsp;</div>
 <div id="app" class="mx-auto px-5 py-6" style="max-width:1100px">
@@ -409,9 +409,9 @@ function renderColumns(root,columns){
   const table=q(root,"table"), head=q(root,"thead tr");
   head.querySelectorAll(".plugin-column").forEach(n=>n.remove());
   columns.forEach(c=>{const th=document.createElement("th");th.className="plugin-column text-left font-medium px-2 py-2";th.textContent=c.title;head.insertBefore(th,head.lastElementChild);});
-  const widths=[170,150,230,97,140,...columns.map(()=>100),65];
-  q(root,"colgroup").innerHTML=widths.map(w=>`<col style="width:${w}px">`).join('');
-  table.style.minWidth=widths.reduce((a,b)=>a+b)+"px";
+  const widths=[[170,""],[150,""],[230,"mobile-hide"],[97,"mobile-hide"],[140,""],...columns.map(()=>[100,""]),[65,""]];
+  q(root,"colgroup").innerHTML=widths.map(([w,c])=>`<col class="${c}" style="width:${w}px">`).join('');
+  table.style.minWidth=widths.reduce((a,[w])=>a+w,0)+"px";
 }
 function renderActions(a,table){
   const stopped=a.status==="Stopped (manual)";
@@ -477,8 +477,8 @@ function renderAgents(root, agents, summary=null, columns=[]){
     tr.innerHTML=
       `<td class="px-2 py-1.5 font-medium text-slate-700 whitespace-nowrap" style="text-overflow:ellipsis" title="${esc(a.name)}">${nameCell}${tg}${recovery}</td>`+
       `<td class="px-2 py-1.5 whitespace-nowrap"><span title="${esc(a.account?a.label+' · Account: '+a.account:a.label)}" class="inline-block rounded px-1.5 py-0.5 text-[11px] font-medium align-middle ${tcls}" style="max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(a.label)}</span>${a.metadata_error?'<br><span class="text-[11px] text-amber-600">Incomplete data</span>':""}</td>`+
-      `<td class="px-2 py-1.5">${sid}</td>`+
-      `<td class="px-2 py-1.5 text-slate-500 text-xs whitespace-nowrap" title="${esc(a.status_detail||'')}">${a.age!=null?"ago "+fmtDuration(a.age):"–"}</td>`+
+      `<td class="mobile-hide px-2 py-1.5">${sid}</td>`+
+      `<td class="mobile-hide px-2 py-1.5 text-slate-500 text-xs whitespace-nowrap" title="${esc(a.status_detail||'')}">${a.age!=null?"ago "+fmtDuration(a.age):"–"}</td>`+
       `<td class="px-2 py-1.5" title="${esc(statusTip)}"><span class="inline-flex items-center gap-1.5 whitespace-nowrap ${stCls}"><span class="h-2 w-2 rounded-full ${dot} shrink-0"></span><span class="flex flex-col">${esc(statusTxt)}</span></span></td>`+
       columns.map(c=>`<td class="px-2 py-1.5 text-xs">${renderCell((a.cells||{})[c.id])}</td>`).join("")+
       `<td class="px-2 py-1.5 text-right whitespace-nowrap">${renderActions(a, root.dataset.svc)}</td>`;
