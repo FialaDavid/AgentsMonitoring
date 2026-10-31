@@ -97,7 +97,7 @@ PAGE = r"""<!DOCTYPE html><html lang="en"><head>
 <title>Agents Monitoring</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🤖</text></svg>">
 <script src="/static/tailwind.js"></script>
-<style>.bar{transition:opacity .15s ease}.bar:hover{opacity:.65}.usage-day-divider::before{content:"";position:absolute;left:-3px;top:-4px;bottom:-4px;width:1px;border-radius:1px;background:#94a3b8}.copied-flash{color:#059669!important;transition:color .1s}#toast{transition:opacity .2s ease}.agent-rows td{overflow:hidden}.sid{display:block;overflow:hidden;text-overflow:ellipsis}</style>
+<style>.bar{transition:opacity .15s ease}.bar:hover{opacity:.65}.usage-day-divider::before{content:"";position:absolute;left:-3px;top:-4px;bottom:-4px;width:1px;border-radius:1px;background:#94a3b8}.copied-flash{color:#059669!important;transition:color .1s}#toast{transition:opacity .2s ease}.agent-rows td{overflow:hidden}.sid{display:block;overflow:hidden;text-overflow:ellipsis}.topic-grid{display:grid;grid-template-columns:12rem 6rem 9.5rem 9rem 10rem;align-items:center;gap:.25rem .75rem}.topic-cell{min-width:0;overflow-wrap:anywhere}.topic-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.topic-state{display:inline-flex;align-items:center;gap:.375rem;white-space:nowrap}@media(max-width:600px){.topic-grid{width:calc(100vw - 3rem);grid-template-columns:repeat(2,minmax(0,1fr));gap:.25rem .5rem}}</style>
 </head><body class="bg-slate-50 text-slate-800 antialiased">
 <div id="toast" class="fixed left-1/2 bottom-5 -translate-x-1/2 bg-slate-800 text-white text-sm px-2 py-1.5 rounded-md shadow-lg opacity-0 pointer-events-none" style="z-index:50">&nbsp;</div>
 <div id="app" class="mx-auto px-5 py-6" style="max-width:1100px">
@@ -485,17 +485,18 @@ function renderAgents(root, agents, summary=null, columns=[]){
 // Read-only sub-row for one topic of a bridge, shown under its master agent.
 function renderTopic(t,stale,span){
   const tr=document.createElement("tr"); tr.className="border-b border-slate-100 last:border-0 topic-row";
-  const ago=(label,s)=>s==null?"":`<span>${label} ${fmtDuration(s)} ago</span>`;
+  const ago=(label,s)=>s==null?"":`${label} ${fmtDuration(s)} ago`;
   const k=n=>n<1000?String(n):Math.round(n/1000)+"k";
-  const ctx=t.ctx_tokens?`<span>context ${k(t.ctx_tokens)}${t.ctx_percent!=null?" ("+t.ctx_percent+"%)":""}</span>`:"";
-  const dotted=(c,txt)=>`<span class="h-2 w-2 rounded-full ${c} shrink-0"></span>${txt}`;
-  const run=t.status==="live"?(t.alive?["bg-emerald-500","running"]:["bg-rose-500","not running"]):
-    t.status==="parked"?["bg-slate-300","parked"]:t.status==="waiting"?["bg-amber-500","waiting"]:["bg-slate-300",t.status||"?"];
-  const state=`<span class="inline-flex items-center gap-1.5">${dotted(stale?"bg-amber-500":run[0],(stale?"stale · ":"")+esc(run[1]))}`+
-    (t.status==="live"&&t.alive&&t.busy?` · ${dotted("bg-amber-500","busy")}`:"")+`</span>`;
-  const parts=[`<span class="font-medium text-slate-600">${esc(t.title||"topic "+t.thread)}</span>`,
-    state,ago("last activity",t.last_activity_age),ctx,ago("compacted",t.last_compact_age)].filter(Boolean);
-  tr.innerHTML=`<td colspan="${span}" class="pl-8 pr-2 py-1 text-xs ${stale?"text-slate-400":"text-slate-500"}"><div class="flex flex-wrap gap-x-4 gap-y-0.5">${parts.join("")}</div></td>`;
+  const ctx=t.ctx_tokens?`context ${k(t.ctx_tokens)}${t.ctx_percent!=null?" · "+fmtPct(t.ctx_percent):""}`:"";
+  const run=t.status==="live"?(t.alive?(t.busy?["bg-sky-500","active","text-sky-600"]:["bg-emerald-500","idle","text-emerald-600"]):["bg-rose-500","not running","text-rose-600"]):
+    t.status==="parked"?["bg-slate-300","parked","text-slate-500"]:t.status==="waiting"?["bg-amber-500","waiting","text-amber-600"]:["bg-slate-300",t.status||"?","text-slate-500"];
+  const state=`<span class="topic-state ${stale?"text-slate-400":run[2]}"${stale?' title="bridge status stale"':""}><span class="h-2 w-2 rounded-full ${stale?"bg-slate-300":run[0]} shrink-0"></span>${esc(run[1])}</span>`;
+  const name=esc(t.title||"topic "+t.thread);
+  const contextClass=t.ctx_percent!=null&&t.ctx_percent>=80?"text-amber-600":"";
+  const cells=[`<span class="topic-cell topic-name font-medium text-slate-600" title="${name}">${name}</span>`,
+    `<span class="topic-cell">${state}</span>`,`<span class="topic-cell">${ago("last activity",t.last_activity_age)}</span>`,
+    `<span class="topic-cell ${contextClass}">${ctx}</span>`,`<span class="topic-cell">${ago("compacted",t.last_compact_age)}</span>`];
+  tr.innerHTML=`<td colspan="${span}" class="pl-8 pr-2 py-1 text-xs ${stale?"text-slate-400":"text-slate-500"}"><div class="topic-grid">${cells.join("")}</div></td>`;
   return tr;
 }
 // Collapsible blocks. The first OPEN_BY_DEFAULT blocks (agents table + the first service cards)

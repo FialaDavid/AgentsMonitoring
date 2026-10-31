@@ -91,10 +91,13 @@ class Page(unittest.TestCase):
     def test_topic_row_uses_plain_words(self):
         body = dashboard.PAGE[dashboard.PAGE.index('function renderTopic'):]
         body = body[:body.index('// Collapsible blocks')]
-        for text in ('"running"', '"not running"', 'last activity', 'context ', 'compacted'):
+        for text in ('"active"', '"idle"', '"not running"', '"parked"', '"waiting"',
+                     'last activity', 'compacted', 'topic-grid', 'topic-cell', 'title="bridge status stale"',
+                     '" · "+fmtPct(t.ctx_percent)', 't.ctx_percent>=80', 'topic "+t.thread'):
             self.assertIn(text, body)
-        self.assertNotIn('"not alive"', body)
-        self.assertNotIn('ctx ', body)
+        self.assertNotIn('"running"', body)
+        self.assertNotIn('stale · ', body)
+        self.assertNotIn('.filter(Boolean)', body)
 
 
 if __name__ == '__main__':
