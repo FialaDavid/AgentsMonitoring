@@ -592,14 +592,44 @@ def _pretty_model(raw: str) -> str:
     return " ".join([label] + words)
 
 
-def _codex_model() -> str | None:
-    """Best-effort concrete model for Codex, from ~/.codex/config.toml (e.g. 'GPT-5.5')."""
-    try:
-        txt = (Path.home() / ".codex" / "config.toml").read_text(encoding="utf-8")
-    except OSError:
-        return None
+def _toml_model(txt: str) -> str | None:
+    """The ``model = "..."`` of Codex config text, without a TOML dependency."""
     m = re.search(r'(?m)^\s*model\s*=\s*["\']?([A-Za-z0-9._/-]+)', txt)
     return _pretty_model(m.group(1)) if m else None
+
+
+def _read(path: Path) -> str:
+    try:
+        return path.read_text(encoding="utf-8")
+    except OSError:
+        return ""
+
+
+def _codex_model() -> str | None:
+    """Best-effort concrete model for Codex, from ~/.codex/config.toml (e.g. 'GPT-5.5')."""
+    return _toml_model(_read(Path.home() / ".codex" / "config.toml"))
+
+
+def _codex_profile_model(cmds: list[str]) -> str | None:
+    """Model of the ``codex --profile NAME`` a session was launched with: the ``[profiles.NAME]``
+    table of config.toml, or a separate ``NAME.config.toml`` next to it. Used when neither the
+    rollout nor ``--model`` names the model, so agents sharing one default config do not all
+    show the same model."""
+    home = Path(os.environ.get('CODEX_HOME', Path.home()/'.codex'))
+    for cmd in cmds:
+        try: parts = shlex.split(cmd)
+        except ValueError: continue
+        if not parts or os.path.basename(parts[0]) != 'codex': continue
+        for i, part in enumerate(parts):
+            name = (parts[i+1] if part in ('--profile', '-p') and i+1 < len(parts)
+                    else part.split('=', 1)[1] if part.startswith('--profile=') else None)
+            if not name or not re.fullmatch(r'[A-Za-z0-9._-]+', name):
+                continue
+            table = re.search(r'(?ms)^\[profiles\.'+re.escape(name)+r'\][ \t]*$(.*?)(?=^\[|\Z)',
+                              _read(home/'config.toml'))
+            return (_toml_model(_read(home/f'{name}.config.toml'))
+                    or (_toml_model(table.group(1)) if table else None))
+    return None
 
 
 def _openclaw_model() -> str | None:
@@ -741,7 +771,8 @@ def discover_agents(extra_matches: list[tuple] | None = None, now: float | None 
         ranked = row['commands']
         if kind == "codex":
             model = ((_rollout_model(row['transcript']) if row['transcript'] else None)
-                     or row.get('resolved_model') or _model_from_argv(ranked) or codex_model)
+                     or row.get('resolved_model') or _model_from_argv(ranked)
+                     or _codex_profile_model(ranked) or codex_model)
             if model:
                 label = model
         if kind == "claude-code":
