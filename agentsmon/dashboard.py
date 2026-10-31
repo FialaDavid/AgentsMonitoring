@@ -374,7 +374,7 @@ function usageState(cell,limits,now){
     const t=Math.max(0,Math.min(100,(now-(l.resets_at-l.window_minutes*60))/(l.window_minutes*60)*100));
     return (l.used_percent||0)>t;
   });
-  if(over) return ["bg-amber-500","Overused","text-amber-600","bg-amber-50 border-amber-200"];
+  if(over) return ["bg-rose-500","Overused","text-rose-600","bg-rose-50 border-rose-200"];
   return ["bg-emerald-500","Operational","text-emerald-600","bg-emerald-50 border-emerald-200"];
 }
 function renderUsage(root, rows){
