@@ -163,9 +163,6 @@ const VENDOR = { "anthropic":"bg-orange-100 text-orange-700", "openai":"bg-emera
 const NAME_BG = { "red":"bg-rose-100", "gold":"bg-amber-100", "green":"bg-emerald-100", "blue":"bg-sky-100" };
 function fmtDuration(s){if(s==null)return "–";const d=Math.floor(s/86400),h=Math.floor(s%86400/3600),m=Math.floor(s%3600/60);
   return d?`${d}d ${h}h`:h?`${h}h ${m}m`:`${m}m`;}
-function fmtReset(u){
-  const s=u-Date.now()/1000, d=new Date(u*1000), p=n=>String(n).padStart(2,"0");
-  return s<86400?"in "+fmtDuration(Math.max(0,s)):d.toLocaleDateString("en-US",{weekday:"short"})+" "+p(d.getHours())+":"+p(d.getMinutes());}
 function fmtTime(u){return u?new Date(u*1000).toLocaleString():"";}
 function fmtLat(ms){return ms==null?"–":(ms<1?"<1 ms":ms+" ms");}
 function esc(s){return String(s==null?"":s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));}
@@ -234,17 +231,16 @@ function renderRows(root, rows, details=false){
 function renderCell(cell){
   if(!cell) return "–";
   const tones={ok:"text-emerald-600",warning:"text-amber-600",error:"text-rose-600",muted:"text-slate-400"};
-  const bars=(cell.bars||[]).map(b=>`<div title="${esc(b.title)}" class="mb-1 whitespace-nowrap"><span>${esc(b.label)} ${b.percent}%</span>${b.reset?`<span class="text-slate-400"> · resets ${fmtReset(b.reset)}</span>`:""}<div class="h-1.5 bg-slate-100 rounded"><div class="h-1.5 rounded ${b.percent>=90?'bg-rose-500':b.percent>=70?'bg-amber-500':'bg-emerald-500'}" style="width:${b.percent}%"></div></div></div>`).join("");
-  const text=cell.text||(cell.as_of&&cell.tone==="muted"?"as of "+fmtDuration(Math.max(0,Date.now()/1000-cell.as_of))+" ago":"");
-  return `<span title="${esc(cell.title)}" class="whitespace-nowrap ${tones[cell.tone]||''}">${esc(text)}</span>`+bars;
+  const bars=(cell.bars||[]).map(b=>`<div title="${esc(b.title)}" class="mb-1"><span>${esc(b.label)} ${b.percent}%</span><div class="h-1 bg-slate-100 rounded"><div class="h-1 rounded ${b.percent>=90?'bg-rose-500':b.percent>=70?'bg-amber-500':'bg-emerald-500'}" style="width:${b.percent}%"></div></div></div>`).join("");
+  return `<span title="${esc(cell.title)}" class="${tones[cell.tone]||''}">${esc(cell.text)}</span>`+bars;
 }
 function renderColumns(root,columns){
   const table=q(root,"table"), head=q(root,"thead tr");
   head.querySelectorAll(".plugin-column").forEach(n=>n.remove());
   columns.forEach(c=>{const th=document.createElement("th");th.className="plugin-column text-left font-medium px-2 py-2";th.textContent=c.title;head.insertBefore(th,head.lastElementChild);});
-  const widths=[170,150,260,97,113,...columns.map(()=>170),65];
+  const widths=[170,150,260,97,113,...columns.map(()=>100),65];
   q(root,"colgroup").innerHTML=columns.length?widths.map(w=>`<col style="width:${w}px">`).join(''):'<col style="width:21%"><col style="width:13%"><col style="width:32%"><col style="width:12%"><col style="width:14%"><col style="width:8%">';
-  table.style.minWidth=(columns.length?855+columns.length*170:680)+"px";
+  table.style.minWidth=(columns.length?855+columns.length*100:680)+"px";
 }
 function renderActions(a,table){
   const stopped=a.status==="Stopped (manual)";
@@ -358,7 +354,7 @@ document.addEventListener("click",e=>{
 async function refresh(){
   try{
     const d=await (await fetch("/api/state",{credentials:"same-origin"})).json();
-    document.getElementById('app').style.maxWidth=(900+(d.columns||[]).length*170)+'px';
+    document.getElementById('app').style.maxWidth=(900+(d.columns||[]).length*100)+'px';
     const agentsRoot=document.querySelector('section[data-svc="agents"]');
     renderAgents(agentsRoot, d.agents, null, d.columns||[]); initCollapse(agentsRoot,"agents",0);
     const tables=document.getElementById("plugin-tables");

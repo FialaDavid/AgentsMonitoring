@@ -1,11 +1,11 @@
 {
-  "content_id": "ee3908a90aee2dd8aadec8b5e3523e362d39449ef6b33d334067599042f97dfd",
+  "content_id": "5507e61834bde0716f10b6097bb768c5fc4f36af0bd049b46c818869d3d8b692",
   "files": {
     "__init__.py": "5d34cfa5ece2de941a159c2020100da724d4a43b22abfc822d540620059ab2b3",
     "__main__.py": "5b146bb859e917481a20e2453485aac01c71326879ce73e1e403392e229502e2",
     "bridges.py": "31d53c39b8cc884c15a3f6985961adcb997d4704290ab6a1c8b43d5cedeb9704",
     "config.py": "0e95cf733404fa2cae8b71317e7d7c514919ccaeec22e50edf738a0a8ac1c585",
-    "dashboard.py": "2ceb8174c90dafec0d973e1ae59d1c066d2124d89a78dfd5578f80995bf680cd",
+    "dashboard.py": "254849701886370c4163b39fded48eb5f78bce288439bb0d190ef334a6191a27",
     "db.py": "470bafc161d24ac1bea302af0873ebf2e596a8ce77796cb29e79189bb2d1c5cf",
     "detect.py": "dfac59f70022f7d6ce297b9853c8d07605f700a46185339c9692ab48be6bfa49",
     "dialogs.py": "690cf9a5fb439809329a8054d74de32cca192b67d6e931926762f345812b2b66",
@@ -15,7 +15,7 @@
     "keepalive.py": "b28c1a8638280a895b80cdf86a07b481b9566465b7d7a8ca98731a3dc2a8ef45",
     "managed.py": "10da1bd690d61ceb68a571c51aefff1d10b49126026a9b3c13c515ad995ceaeb",
     "plugin_worker.py": "407c3054cfba3429b5f1c7cf28413d12a6b6a12eb0f49de9d23135c2daf4dedb",
-    "plugins.py": "d3ffc04926d4287897fd736cd55d6e1e9f378dba2257bf09593146ec766057f0",
+    "plugins.py": "68815d1560a82716caa1b651f5c6d2066ebc6e2a593bedc58d0dc2c80f3f2222",
     "probe.py": "ab539a01a8f8468c03e86d40691e61dbc8a841ce11988d66a61dd64d14a12e0e",
     "restarter.py": "90e18202d5360798ac8a9bba956cf5a11f7475248941674cc1fde20a0456ab91",
     "service.py": "8a0145501b5596586633e91b3479d20b3f45aa54f75e0fef858ab5df08d7f70a",
@@ -23,7 +23,7 @@
     "status.py": "03f98847add6fad24e51760f68bccf38c0f2bebb58fe541122e3d2b83d94d2da",
     "uninstaller.py": "c149b57897c91322abcfbf3a41e47b1fd37127212f0f6f9de5f9813af14a5b26",
     "updater.py": "e5f307f0d5eaac5f29359b90ddd7b0e183906b66df65f9c4c494a0c2220b34f2",
-    "usage_plugin.py": "181ff0461920e6f5622f1ea754004f39aaa5d3937fd89da47afc34130722b416",
+    "usage_plugin.py": "2190fa8e8241137b26e8bbc6583c21a0194af71a5d1c1e56a59ae569367fa7f5",
     "wizard.py": "558b0f1a3699e87d7cafd48abd8ca3eeeb198cb4a7d9ccb0ae054d84dc1d86fe"
   },
   "release": "v0.3.12+a2tt-topics-candidate",
