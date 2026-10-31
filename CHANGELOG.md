@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- `usage_plugin.view: "section"` shows usage as one block per account (Session/Weekly bars with used/left, reset time and a time-pace marker; blocks past the marker are red). `"column"` (default) keeps the table column.
+- Usage bars and availability timelines pick their block count from the available width; on phone-width screens the agents table hides Session ID and Started.
+- a2tt topic sub-rows use aligned cells with one state word (`active`, `idle`, `parked`, `waiting`, `not running`); context shows a percentage when the bridge reports the window size.
 - A Claude agent's conversation is taken from the `~/.claude/sessions/<pid>.json` file Claude Code keeps for its running process (when pid, working directory and start time match), so a conversation that rotated after `/clear` is no longer pinned to its older predecessor and restarts resume the current one. Without that file the transcript-based detection applies as before.
 - An a2tt bridge entry may name a `master` agent: the bridge's topics (from its status file) are listed read-only under that agent's row with kind, status, busy/idle, last activity and compaction age, and context use. Stale bridges mark them stale; an unknown master is reported on the bridge card. No actions are offered for topics.
 - Agent2TelegramTopic (`a2tt`) bridges are monitored next to Agent2Telegram ones: bridge entries gain `kind` (`a2t` default, or `a2tt`), `agentsmon add --non-interactive --bridge-kind a2tt` registers one, and the "Telegram Bridge" card shows each configured bridge as `running`, `down` or `stale`. An a2tt bridge whose status file stopped updating is `stale` and counts as an outage; a kind that is not configured never does.

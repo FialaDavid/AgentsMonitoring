@@ -11,13 +11,23 @@ Agents Monitoring is a tiny, dependency-free supervisor. It **auto-detects** wha
 your tmux sessions (you don't declare anything — it looks), shows a **live status page**, and
 **restarts** anything that dies — surviving logout and reboot.
 
-> **About this fork.** This is a maintained fork of
-> [petrludwig-collab/AgentsMonitoring](https://github.com/petrludwig-collab/AgentsMonitoring).
-> On top of upstream it adds support for
-> [agent2telegramtopic](https://github.com/FialaDavid/agent2telegramtopic) bridges (bridge health
-> and per-topic sessions shown read-only under their master agent), credential-free usage from
-> rotating Codex rollouts and a2tt Claude rate-limit files, and correct pinning of Claude Code
-> sessions after `/clear`. See [CHANGELOG.md](CHANGELOG.md).
+> **About this fork.** Based on [Agents Monitoring](https://github.com/petrludwig-collab/AgentsMonitoring)
+> by Petr Ludwig (MIT). It adds:
+>
+> - Monitoring of [agent2telegramtopic](https://github.com/FialaDavid/agent2telegramtopic) bridges
+>   (`kind: "a2tt"`, `agentsmon add --non-interactive --bridge-kind a2tt`); a bridge whose status file
+>   stops updating is shown as stale.
+> - `master` on an a2tt bridge lists its Telegram topics read-only under that agent's row: state, last
+>   activity, context use and last compaction.
+> - `usage_plugin` sources can be a `glob` (the newest Codex rollout is used) and `claude-statusline`
+>   files with top-level windows, as a2tt writes them. No credentials are read.
+> - `usage_plugin.view: "section"` shows usage as a block per account instead of a table column, with
+>   the elapsed share of each window marked on the bar.
+> - Claude Code sessions are pinned from `~/.claude/sessions/<pid>.json`, so the pin follows `/clear`.
+> - Narrow screens: usage bars and availability timelines use fewer blocks, and the agents table hides
+>   the Session ID and Started columns.
+>
+> If you do not run agent2telegramtopic and need none of this, use upstream.
 
 ```
 tmux sessions  ⇄  Agents Monitoring  ⇄  status page + keepalive
