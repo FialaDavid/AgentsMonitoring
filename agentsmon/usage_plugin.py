@@ -17,11 +17,11 @@ def epoch(value):
     return None
 
 
-def window(label, pct, reset, now):
+def window(label, pct, reset, now, minutes=None):
     if type(pct) not in (int,float) or not math.isfinite(pct) or not 0<=pct<=100: return None
     reset=epoch(reset)
     if reset and reset<=now: return None
-    return {'label':label,'percent':round(pct,1),
+    return {'label':label,'percent':round(pct,1),'reset':reset or None,'window_minutes':minutes,
             'title':('Resets '+datetime.fromtimestamp(reset).astimezone().isoformat()) if reset else 'Reset time unavailable'}
 
 
@@ -74,12 +74,14 @@ def read_file(path, kind, spec, now):
         w=data.get(key) or {}
         # Prefer reported window length, not a guessed five-hour/week label.
         minutes=w.get('window_minutes') or (w.get('limit_window_seconds') or 0)/60
+        # Claude's statusline names the window in the key itself and reports no length.
+        if not minutes and kind=='claude-statusline': minutes={'five_hour':300,'seven_day':10080}[key]
         if minutes: label=(f'{minutes/1440:g}d' if minutes%1440==0 else f'{minutes/60:g}h')
-        b=window(label,w.get(pct),w.get(reset),now)
+        b=window(label,w.get(pct),w.get(reset),now,round(minutes) if minutes else None)
         if b: bars.append(b)
     if not bars: return {'text':'No current reading','tone':'muted','title':'No unexpired usage window'}
     stale=now-stamp>600 or stamp>now+30
-    return {'text':'Cached' if stale else '', 'tone':'muted' if stale else 'ok', 'bars':bars,
+    return {'text':'Cached' if stale else '', 'tone':'muted' if stale else 'ok', 'bars':bars, 'as_of':int(stamp),
             'title':f"{spec.get('account','Explicit source')} · {kind} · {datetime.fromtimestamp(stamp).astimezone().isoformat()}"}
 
 
@@ -90,5 +92,7 @@ def collect(context,settings):
     for identity,source in sources.items():
         try: value=read_source(source,time.time())
         except Exception: value={'text':'Unavailable','tone':'muted','title':'Usage source unavailable; account not inferred'}
+        account=source.get('account') if isinstance(source,dict) else None
+        if isinstance(account,str) and len(account)<=80: value['account']=account
         patches.append({'row_id':identity,'cells':{'limits':value}})
     return {'columns':[{'id':'limits','title':'Usage'}],'patches':patches}

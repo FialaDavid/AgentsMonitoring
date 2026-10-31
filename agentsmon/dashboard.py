@@ -78,12 +78,22 @@ AGENT_TABLE = r"""
   </section>"""
 
 
+USAGE_SECTION = r"""
+  <section id="usage-section" class="mb-6" hidden>
+    <div class="svc-head flex items-center gap-2.5 mb-3 rounded-lg border px-3 py-2 bg-white border-slate-200">
+      <h2 class="text-base font-semibold">Usage</h2>
+      <span class="svc-chev text-slate-400 text-xs ml-auto select-none" title="collapse / expand">▾</span>
+    </div>
+    <div class="svc-body"><div class="usage-blocks"></div></div>
+  </section>"""
+
+
 PAGE = r"""<!DOCTYPE html><html lang="en"><head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Agents Monitoring</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🤖</text></svg>">
 <script src="/static/tailwind.js"></script>
-<style>.bar{transition:opacity .15s ease}.bar:hover{opacity:.65}.copied-flash{color:#059669!important;transition:color .1s}#toast{transition:opacity .2s ease}.agent-rows td{overflow:hidden}.sid{display:block;overflow:hidden;text-overflow:ellipsis}</style>
+<style>.bar{transition:opacity .15s ease}.bar:hover{opacity:.65}.usage-day-divider::before{content:"";position:absolute;left:-3px;top:-4px;bottom:-4px;width:1px;border-radius:1px;background:#94a3b8}.copied-flash{color:#059669!important;transition:color .1s}#toast{transition:opacity .2s ease}.agent-rows td{overflow:hidden}.sid{display:block;overflow:hidden;text-overflow:ellipsis}</style>
 </head><body class="bg-slate-50 text-slate-800 antialiased">
 <div id="toast" class="fixed left-1/2 bottom-5 -translate-x-1/2 bg-slate-800 text-white text-sm px-2 py-1.5 rounded-md shadow-lg opacity-0 pointer-events-none" style="z-index:50">&nbsp;</div>
 <div id="app" class="mx-auto px-5 py-6" style="max-width:850px">
@@ -164,6 +174,20 @@ const NAME_BG = { "red":"bg-rose-100", "gold":"bg-amber-100", "green":"bg-emeral
 function fmtDuration(s){if(s==null)return "–";const d=Math.floor(s/86400),h=Math.floor(s%86400/3600),m=Math.floor(s%3600/60);
   return d?`${d}d ${h}h`:h?`${h}h ${m}m`:`${m}m`;}
 function fmtTime(u){return u?new Date(u*1000).toLocaleString():"";}
+function fmtPct(n){return n==null?"–":(Number.isInteger(n)?n.toFixed(0):n.toFixed(1)).replace(/\.0$/,"")+"%";}
+function fmtDateTime(ts){
+  if(!ts)return "reset unknown";
+  const d=new Date(ts*1000);
+  const pad=n=>String(n).padStart(2,"0");
+  return `${pad(d.getDate())}/${pad(d.getMonth()+1)}/${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+}
+function fmtReset(ts, now){
+  if(!ts)return "reset unknown";
+  const sec=Math.max(0, Math.floor(ts-now));
+  const h=Math.floor(sec/3600), m=Math.floor((sec%3600)/60);
+  const rel=h?`${h}h ${m}m`:`${m}m`;
+  return `resets in ${rel} · ${fmtDateTime(ts)}`;
+}
 function fmtLat(ms){return ms==null?"–":(ms<1?"<1 ms":ms+" ms");}
 function esc(s){return String(s==null?"":s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));}
 const q=(r,s)=>r.querySelector(s);
@@ -234,13 +258,118 @@ function renderCell(cell){
   const bars=(cell.bars||[]).map(b=>`<div title="${esc(b.title)}" class="mb-1"><span>${esc(b.label)} ${b.percent}%</span><div class="h-1 bg-slate-100 rounded"><div class="h-1 rounded ${b.percent>=90?'bg-rose-500':b.percent>=70?'bg-amber-500':'bg-emerald-500'}" style="width:${b.percent}%"></div></div></div>`).join("");
   return `<span title="${esc(cell.title)}" class="${tones[cell.tone]||''}">${esc(cell.text)}</span>`+bars;
 }
+// "Usage" section (usage_plugin.view = "section"): the same plugin cells as the column, as large per-account blocks.
+function usageLimit(b){
+  const m=b.window_minutes;
+  return {label:m?(m<=1440?"Session":m>=10080?"Weekly":b.label):b.label, used_percent:b.percent, remaining_percent:100-b.percent,
+          window_minutes:m, resets_at:b.reset};
+}
+function renderUsageBars(root, limits){
+  const box=root.querySelector(".usage-bars");
+  if(!box) return;
+  box.innerHTML="";
+  (limits||[]).forEach(limit=>{
+    const row=document.createElement("div");
+    row.className="grid grid-cols-[64px_1fr] items-start gap-2";
+    row.innerHTML=`<div class="flex h-5 items-center text-[11px] font-medium leading-none text-slate-400">${esc(limit.label)}</div><div><div class="grid gap-[2px] usage-bar-cells"></div><div class="relative mt-1 h-3 usage-time-track"></div></div>`;
+    const cells=row.querySelector(".usage-bar-cells");
+    const pct=limit.used_percent||0;
+    const windowSec=(limit.window_minutes||0)*60;
+    const resetAt=limit.resets_at||0;
+    let timePct=null;
+    if(windowSec>0 && resetAt>0){
+      const now=Date.now()/1000;
+      const startAt=resetAt-windowSec;
+      timePct=Math.max(0, Math.min(100, ((now-startAt)/windowSec)*100));
+    }
+    const makeCell=(i)=>{
+      const el=document.createElement("div");
+      const used=i<=Math.ceil(pct);
+      const overused=used && timePct!=null && i>Math.ceil(timePct);
+      el.className="bar h-5 rounded-[2px] "+(used?(overused?"bg-rose-500":"bg-emerald-500"):"bg-slate-200");
+      el.title=`${limit.label} · ${fmtPct(pct)} used${timePct==null?"":` · ${fmtPct(timePct)} time elapsed`} · block ${i}/100`;
+      return el;
+    };
+    const isWeekly=(limit.label||"").toLowerCase()==="weekly";
+    if(isWeekly){
+      cells.classList.add("usage-bar-weekly");
+      cells.style.gridTemplateColumns="repeat(7,minmax(0,1fr))";
+      cells.style.gap="5px";
+      for(let day=0;day<7;day++){
+        const start=Math.floor((day*100)/7)+1;
+        const end=Math.floor(((day+1)*100)/7);
+        const segment=document.createElement("div");
+        segment.className="relative grid gap-[2px]";
+        if(day>0) segment.classList.add("usage-day-divider");
+        segment.style.gridTemplateColumns=`repeat(${end-start+1},minmax(0,1fr))`;
+        for(let i=start;i<=end;i++) segment.appendChild(makeCell(i));
+        cells.appendChild(segment);
+      }
+    }else{
+      cells.style.gridTemplateColumns="repeat(100,minmax(0,1fr))";
+      for(let i=1;i<=100;i++) cells.appendChild(makeCell(i));
+    }
+    const track=row.querySelector(".usage-time-track");
+    if(timePct!=null){
+      const marker=document.createElement("div");
+      marker.className="absolute top-0 h-[6.4px] w-2.5 -translate-x-1/2 rounded-[1px] bg-emerald-800";
+      marker.style.left=`${timePct}%`;
+      marker.style.clipPath="polygon(50% 0, 100% 100%, 0 100%)";
+      marker.title=`${limit.label} time pace · ${fmtPct(timePct)} elapsed`;
+      track.appendChild(marker);
+    }
+    box.appendChild(row);
+  });
+}
+function limitTile(limit){
+  return `<div class="rounded-lg border border-slate-200 bg-white p-3">`+
+    `<p class="text-[11px] uppercase tracking-wide text-slate-400">${esc(limit.label||"")}</p>`+
+    `<p class="text-lg font-semibold mt-0.5 leading-tight text-slate-800">${fmtPct(limit.remaining_percent)} remaining</p>`+
+    `<p class="text-[11px] text-slate-400 mt-0.5">${fmtPct(limit.used_percent)} used</p>`+
+    `<p class="text-[11px] text-slate-400">${fmtReset(limit.resets_at, Date.now()/1000)}</p>`+
+  `</div>`;
+}
+function currentUsageLegend(){
+  return `<div class="flex items-center gap-3">`+
+    `<span class="flex items-center gap-1"><span class="h-2 w-2 rounded-sm bg-emerald-500"></span>Used</span>`+
+    `<span class="flex items-center gap-1"><span class="h-2 w-2 rounded-sm bg-rose-500"></span>Overused</span>`+
+    `<span class="flex items-center gap-1"><span class="h-2 w-2 rounded-sm bg-slate-200"></span>Unused</span>`+
+  `</div>`;
+}
+function renderUsage(root, rows){
+  root.hidden=!rows.length;
+  const box=q(root,".usage-blocks"); box.innerHTML="";
+  const now=Date.now()/1000;
+  rows.forEach(({name,cell})=>{
+    const limits=(cell.bars||[]).map(usageLimit);
+    const account=cell.account||(cell.title||"").split(" · ")[0];
+    const ago=cell.as_of?Math.round((now-cell.as_of)/60):null;
+    const captured=ago===null?"":ago<2?"limits just captured":`limits captured ${ago}m ago`;
+    const block=document.createElement("div");
+    block.className="mb-4";
+    block.innerHTML=
+      `<div class="flex items-baseline gap-2.5 mb-3 rounded-lg border border-slate-200 bg-white px-3 py-2">`+
+        `<h3 class="text-base font-semibold">${esc(account)}</h3><span class="text-sm text-slate-500">${esc(name)}</span>`+
+        `<span class="ml-auto text-[11px] ${cell.tone==="muted"?"text-slate-400":"text-slate-500"}">${esc(limits.length?captured:cell.text)}</span>`+
+      `</div>`+
+      (limits.length?
+        `<div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-3">${limits.map(limitTile).join("")}</div>`+
+        `<div class="rounded-lg border border-slate-200 bg-white p-4">`+
+          `<h3 class="text-xs font-semibold text-slate-500">Current usage</h3>`+
+          `<div class="space-y-2 usage-bars pt-4"></div>`+
+          `<div class="flex items-center justify-end text-[11px] text-slate-400">${currentUsageLegend()}</div>`+
+        `</div>`:"");
+    if(limits.length) renderUsageBars(block, limits);
+    box.appendChild(block);
+  });
+}
 function renderColumns(root,columns){
   const table=q(root,"table"), head=q(root,"thead tr");
   head.querySelectorAll(".plugin-column").forEach(n=>n.remove());
   columns.forEach(c=>{const th=document.createElement("th");th.className="plugin-column text-left font-medium px-2 py-2";th.textContent=c.title;head.insertBefore(th,head.lastElementChild);});
   const widths=[170,150,260,97,113,...columns.map(()=>100),65];
-  q(root,"colgroup").innerHTML=columns.length?widths.map(w=>`<col style="width:${w}px">`).join(''):'<col style="width:21%"><col style="width:13%"><col style="width:32%"><col style="width:12%"><col style="width:14%"><col style="width:8%">';
-  table.style.minWidth=(columns.length?855+columns.length*100:680)+"px";
+  q(root,"colgroup").innerHTML=widths.map(w=>`<col style="width:${w}px">`).join('');
+  table.style.minWidth=(855+columns.length*100)+"px";
 }
 function renderActions(a,table){
   const stopped=a.status==="Stopped (manual)";
@@ -357,6 +486,10 @@ async function refresh(){
     document.getElementById('app').style.maxWidth=(900+(d.columns||[]).length*100)+'px';
     const agentsRoot=document.querySelector('section[data-svc="agents"]');
     renderAgents(agentsRoot, d.agents, null, d.columns||[]); initCollapse(agentsRoot,"agents",0);
+    const usageRoot=document.getElementById("usage-section");
+    const usageRows=d.usage_view==="section"?[...d.agents,...(d.agent_tables||[]).flatMap(t=>t.rows)]
+      .filter(a=>(a.cells||{})["usage:limits"]).map(a=>({name:a.name,cell:a.cells["usage:limits"]})):[];
+    renderUsage(usageRoot, usageRows); initCollapse(usageRoot,"usage",1);
     const tables=document.getElementById("plugin-tables");
     const wanted=(d.agent_tables||[]).map(t=>t.id).join("|");
     if(tables.dataset.keys!==wanted){
@@ -431,7 +564,7 @@ refresh(); setInterval(refresh, POLL*1000);
 PAGE=PAGE.replace('AGENT_TABLES',
     AGENT_TABLE.replace('KEY','agents').replace('HIDDEN','').replace('TITLE','Persistent Agents')
         .replace('NOTE','tmux sessions running an agent, linked by their <code>--resume</code> session id')+
-    '<div id="plugin-tables"></div>'+
+    '<div id="plugin-tables"></div>'+USAGE_SECTION+
     '<div id="plugin-loading" role="status" hidden class="mb-4 border border-slate-200 bg-slate-50 text-slate-600 rounded-lg p-3">'
     'Plugins loading: Awaiting a fresh bounded check</div><div id="plugin-errors"></div>'+
     '<template id="agent-table-tpl">'+AGENT_TABLE.replace('KEY','plugin').replace('HIDDEN','')
@@ -683,8 +816,11 @@ def _state() -> bytes:
         s["system_latency_ms"] = sysavg
         s["system_latency_n"] = len(lat_by_url)
     from .integrity import status as core_status
+    up = cfg.get("usage_plugin")
+    usage_view = up.get("view", "column") if isinstance(up, dict) else "column"
+    columns = [c for c in extra['columns'] if usage_view != "section" or c['id'] != "usage:limits"]
     data = {"time": int(time.time()), "agents": agents, "agent_tables": extra['tables'],
-            "columns": extra['columns'], "plugin_errors": extra['errors'], "plugins": extra['plugins'],
+            "usage_view": usage_view, "columns": columns, "plugin_errors": extra['errors'], "plugins": extra['plugins'],
             "plugin_loading": extra.get('loading', False),
             "core": core_status(), "services": services}
     return json.dumps(data).encode()

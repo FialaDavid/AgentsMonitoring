@@ -77,3 +77,63 @@ class RotatingAndTopLevelSources(unittest.TestCase):
             p.write_text(json.dumps({'captured_at': now-3600,
                                      'seven_day': {'used_percentage': 40, 'resets_at': int(now)+9000}}))
             self.assertEqual(usage.read_source({'path': str(p), 'format': 'claude-statusline'}, now)['text'], 'Cached')
+
+
+class UsageView(unittest.TestCase):
+    def test_config_view_defaults_to_column_accepts_section_rejects_junk(self):
+        from agentsmon import config
+        def load(up):
+            with tempfile.TemporaryDirectory() as d:
+                p = Path(d)/'c.json'
+                p.write_text(json.dumps({'usage_plugin': up, 'modules_dir': d}))
+                return config.load(p)
+        self.assertNotIn('view', load({'sources': {}}).get('usage_plugin') or {})
+        self.assertEqual(load({'view': 'column', 'sources': {}})['usage_plugin']['view'], 'column')
+        self.assertEqual(load({'view': 'section', 'sources': {}})['usage_plugin']['view'], 'section')
+        for junk in ('Section', '', None, 1, 'table'):
+            with self.assertRaises(ValueError):
+                load({'view': junk, 'sources': {}})
+
+    def test_sources_report_reset_window_as_of_and_account_through_the_host(self):
+        from agentsmon import plugins
+        now = time.time()
+        with tempfile.TemporaryDirectory() as d:
+            codex = Path(d)/'rollout.jsonl'
+            codex.write_text(json.dumps({'timestamp': '2026-10-15T12:00:00Z', 'payload': {'rate_limits': {
+                'primary': {'used_percent': 42, 'window_minutes': 300, 'resets_at': int(now)+3000},
+                'secondary': {'used_percent': 10, 'window_minutes': 10080, 'resets_at': int(now)+90000}}}})+'\n')
+            claude = Path(d)/'claude.json'
+            claude.write_text(json.dumps({'captured_at': now-120, 'five_hour': {'used_percentage': 5, 'resets_at': int(now)+600}}))
+            result = usage.collect({}, {'sources': {
+                'c': {'path': str(codex), 'format': 'codex-rollout', 'account': 'Team'},
+                'k': {'path': str(claude), 'format': 'claude-statusline', 'account': 'Work'},
+                'x': {'path': str(claude)+'-none', 'format': 'claude-statusline', 'account': 'Gone'}}})
+            plugin = plugins.Plugin('usage', '1.0.0', {}, {})
+            cells = {p['row_id']: p['cells']['usage:limits']
+                     for p in plugins.validate_result(plugin, result)['patches']}
+        self.assertEqual([(b['window_minutes'], b['reset']) for b in cells['c']['bars']],
+                         [(300, int(now)+3000), (10080, int(now)+90000)])
+        self.assertEqual(cells['c']['account'], 'Team')
+        self.assertEqual(cells['c']['as_of'], usage.epoch('2026-10-15T12:00:00Z'))
+        self.assertEqual(cells['k']['bars'][0]['reset'], int(now)+600)
+        self.assertEqual(cells['k']['bars'][0]['window_minutes'], 300)   # five_hour names its window
+        self.assertEqual(cells['k']['as_of'], int(now-120))
+        self.assertEqual(cells['x']['account'], 'Gone')
+        self.assertEqual(cells['x']['text'], 'Unavailable')
+
+    def test_state_hides_usage_column_only_in_section_view(self):
+        from unittest.mock import patch
+        from agentsmon import config, dashboard, plugins
+        extra = {k: [] for k in ('tables', 'patches', 'hidden_sessions', 'hidden_services', 'errors', 'plugins')}
+        extra['columns'] = [{'id': 'usage:limits', 'title': 'Usage'}, {'id': 'other:x', 'title': 'X'}]
+        for up, view, ids in ((None, 'column', ['usage:limits', 'other:x']),
+                              ({'view': 'column'}, 'column', ['usage:limits', 'other:x']),
+                              ({'view': 'section'}, 'section', ['other:x'])):
+            with self.subTest(view=view), patch.object(config, 'load', return_value={'usage_plugin': up}), \
+                    patch.object(dashboard, '_agents_state', return_value=[]), \
+                    patch.object(dashboard, '_service_state', return_value=[]), \
+                    patch('agentsmon.integrity.status', return_value={'state': 'fixture'}), \
+                    patch.object(plugins, 'collect', return_value=extra):
+                data = json.loads(dashboard._state())
+                self.assertEqual(data['usage_view'], view)
+                self.assertEqual([c['id'] for c in data['columns']], ids)

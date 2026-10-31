@@ -320,7 +320,11 @@ rate-limit JSON that some tool keeps up to date works as `claude-statusline`:
 }
 ```
 
-The keys are the dashboard rows to attach the bars to. Details in [docs/PLUGINS.md](docs/PLUGINS.md).
+The keys are the dashboard rows to attach the bars to. By default the bars are a "Usage" column
+in the agents table. Set `"view": "section"` inside `usage_plugin` (`"column"` is the default) to
+drop that column and show a large "Usage" section below the agents instead: per account, Session /
+Weekly tiles with the remaining quota, the reset time, and a 100-block bar with a time-pace marker.
+Details in [docs/PLUGINS.md](docs/PLUGINS.md).
 
 ## How detection works
 

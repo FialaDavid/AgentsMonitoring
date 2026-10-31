@@ -37,7 +37,8 @@ DEFAULTS = {
     # may set name / latency_label / timeout_seconds. Nothing here is required or published.
     "modules_dir": "~/.config/agentsmon/modules",
     "plugin_entry_points": [],  # opt-in names in the agentsmon.plugins entry point group
-    "usage_plugin": None,       # explicit row -> account/source mapping; no automatic credentials
+    "usage_plugin": None,       # explicit row -> account/source mapping; no automatic credentials;
+                                # "view": "column" (default) or "section" (large per-account block)
     "hidden_sessions": [],
     "dashboard": {"host": "127.0.0.1", "port": 8765, "poll_seconds": 15},
     "probe": {"interval_seconds": 60, "sla_window_days": 90, "timeline_days": 90, "min_outage_samples": 3},
@@ -65,6 +66,9 @@ def load(path: Path | None = None) -> dict:
                 cfg[k].update(v)
             else:
                 cfg[k] = v
+    up = cfg.get("usage_plugin")
+    if isinstance(up, dict) and up.get("view", "column") not in ("column", "section"):
+        raise ValueError('usage_plugin.view must be "column" or "section"')
     cfg["services"] = list(cfg.get("services", [])) + discover_modules(cfg)
     return cfg
 
