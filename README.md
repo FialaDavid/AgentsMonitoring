@@ -93,6 +93,22 @@ The last two flags are optional. Repeated registration and later interactive
 are never copied. Disabled entries stay disabled. Registration does not install
 boot services; use `agentsmon setup` if monitoring is not running yet.
 
+#### Agent2TelegramTopic bridges (`a2tt`)
+
+Besides `agent2telegram run`, the monitor recognises `agent2telegramtopic run --config …` processes.
+A bridge entry has a `kind`: `a2t` (the default, so existing configs keep working) or `a2tt`.
+Register one with `--bridge-kind a2tt` (it has no `--bridge-state`), or add `"kind": "a2tt"` to the
+daemon entry by hand. The wizard offers running a2tt bridges like any other.
+Both kinds can run side by side. The "Telegram Bridge" card lists every configured, enabled
+bridge with its own state, `running`, `down` or `stale`, and is green only when all are `running`;
+a kind you have not configured is never an outage.
+
+An a2tt bridge writes a status file, `<instance>/state/<Bot>.status.json` next to its
+`<instance>/config.json` (override with `"status_file": "/path/Bot.status.json"` on the entry). When
+that file exists and its `updated_at` is older than three heartbeats plus 30 s, the bridge is
+`stale` (alive but hung) and counts as an outage. A missing or unreadable file means the process
+alone decides.
+
 Keep the dashboard on localhost by default. HTTP Basic Auth over unencrypted
 HTTP exposes credentials on the network; use an SSH tunnel or Tailscale HTTPS
 before making it reachable remotely.

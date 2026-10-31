@@ -27,7 +27,10 @@ class BridgeRegistration(unittest.TestCase):
                 self.assertEqual([r['up'] for r in status], [True, False])
                 with patch.object(probe.db,'record') as record:
                     probe.probe_once(cfg)
-                self.assertEqual([c.args[:2] for c in record.call_args_list], [('Telegram Bridge', False)])
+                self.assertEqual([c.args[:2] for c in record.call_args_list][0], ('Telegram Bridge', False))
+                self.assertEqual(sorted(c.args[:2] for c in record.call_args_list[1:]),
+                                 sorted([('Telegram Bridge › '+cfg['daemons'][0]['name'], True),
+                                         ('Telegram Bridge › '+cfg['daemons'][1]['name'], False)]))
                 self.assertIn('1/2 bridges running', record.call_args_list[0].args[3])
                 self.assertIn(cfg['daemons'][1]['name'], record.call_args_list[0].args[3])
             args = shlex.split(first['restart'])

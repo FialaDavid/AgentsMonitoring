@@ -260,6 +260,7 @@ def probe_once(cfg: dict) -> None:
             state = bridges.health(cfg)
             if state is not None:
                 db.record(name, state[0], None, state[1])
+                _record_rows(name, bridges.rows(cfg))
             continue
         if s.get('bridge_config'):
             from . import bridges

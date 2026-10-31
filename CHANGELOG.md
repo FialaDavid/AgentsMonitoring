@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Agent2TelegramTopic (`a2tt`) bridges are monitored next to Agent2Telegram ones: bridge entries gain `kind` (`a2t` default, or `a2tt`), `agentsmon add --non-interactive --bridge-kind a2tt` registers one, and the "Telegram Bridge" card shows each configured bridge as `running`, `down` or `stale`. An a2tt bridge whose status file stopped updating is `stale` and counts as an outage; a kind that is not configured never does.
 - Saving the configuration is atomic (temporary file, then replace), so a crash while saving cannot leave a half-written `config.json`.
 - Keepalive no longer aborts its pass when a tmux command hangs or tmux is missing; the failure is logged and the remaining agents are still supervised.
 - The dashboard honours an agent's `label` config key as the displayed model label, in addition to `tag` (`tag` wins if both are set).

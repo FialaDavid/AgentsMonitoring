@@ -446,7 +446,7 @@ def _service_state(cfg: dict, running_agents: int = 0) -> list[dict]:
             "metric": metric, "metric_value": running_agents if metric == "agents" else None,
             "metric_sub": s.get("latency_label", "module" if s.get("command") else "health check"),
             "source": s.get("source", "config"),
-            "row_details": s.get("row_details") is True,
+            "row_details": s.get("row_details") is True or s.get("kind") == "bridges",
             "rows": _service_rows(name, win_days, min_outage),
             "uptime_seconds": db.uptime_seconds(name, min_outage),
             "sla": sla_pct, "sla_window_days": win_days, "sla_samples": samples,
