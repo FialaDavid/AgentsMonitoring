@@ -492,7 +492,7 @@ function renderAgents(root, agents, summary=null, columns=[]){
       `<td class="mobile-hide px-2 py-1.5 text-slate-500 text-xs whitespace-nowrap" title="${esc(a.status_detail||'')}">${a.age!=null?"ago "+fmtDuration(a.age):"–"}</td>`+
       `<td class="px-2 py-1.5" title="${esc(statusTip)}"><span class="inline-flex items-center gap-1.5 whitespace-nowrap ${stCls}"><span class="h-2 w-2 rounded-full ${dot} shrink-0"></span><span class="flex flex-col">${esc(statusTxt)}</span></span></td>`+
       columns.map(c=>`<td class="px-2 py-1.5 text-xs">${renderCell((a.cells||{})[c.id])}</td>`).join("")+
-      `<td class="px-2 py-1.5 text-right whitespace-nowrap">${a.plugin?renderActions(a,root.dataset.svc)+copyIcon:a.bridge_row?renderActions(a,root.dataset.svc,"restart"):copyIcon+renderActions(a,root.dataset.svc,"restart")+renderActions(a,root.dataset.svc,"stop")}</td>`;
+      `<td class="px-2 py-1.5 text-right whitespace-nowrap">${a.plugin?renderActions(a,root.dataset.svc)+copyIcon:a.bridge_row?'<span class="inline-block h-6 w-6 align-middle"></span>'+renderActions(a,root.dataset.svc,"restart")+'<span class="inline-block h-6 w-6 align-middle"></span>':copyIcon+renderActions(a,root.dataset.svc,"restart")+renderActions(a,root.dataset.svc,"stop")}</td>`;
     tb.appendChild(tr);
     (a.topics||[]).forEach(t=>tb.appendChild(renderTopic(t,a.topics_stale,6+columns.length)));
   });
