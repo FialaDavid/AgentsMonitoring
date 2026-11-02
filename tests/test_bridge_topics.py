@@ -112,6 +112,16 @@ class Page(unittest.TestCase):
         self.assertIn('data-copy', body)
         self.assertNotIn('data-act', body)
 
+    def test_topic_name_and_model_render_in_separate_column_cells(self):
+        body = dashboard.PAGE[dashboard.PAGE.index('function renderTopic'):]
+        body = body[:body.index('// Collapsible blocks')]
+        self.assertIn('<td class="pl-8 pr-2 py-1 text-xs', body)
+        self.assertIn('topic-name font-medium text-slate-600', body)
+        self.assertIn('<td colspan="${span-1}" class="px-2 py-1 text-xs', body)
+        self.assertIn('const cells=[model,', body)
+        self.assertIn('title="${name}">${name}</span></td><td colspan="${span-1}"', body)
+        self.assertIn('<div class="topic-grid">${cells.join("")}', body)
+
     def test_topic_row_uses_plain_words(self):
         body = dashboard.PAGE[dashboard.PAGE.index('function renderTopic'):]
         body = body[:body.index('// Collapsible blocks')]
