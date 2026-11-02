@@ -246,8 +246,8 @@ def close_ref(spec, thread):
     return hashlib.sha256(str(spec.get('bridge_config', '')).encode()).hexdigest()[:16]+':'+str(thread)
 
 
-def close_command(spec, thread):
-    """Build the close CLI invocation from the registered restart command."""
+def close_command(spec, thread, subcommand='close'):
+    """Build a topic CLI invocation from the registered restart command."""
     words = shlex.split(spec.get('restart', ''))
     module = next((i for i in range(len(words)-2) if words[i:i+2] == ['-m', 'agent2telegramtopic']), None)
     if module is None or module == 0:
@@ -261,7 +261,7 @@ def close_command(spec, thread):
         key, value = words[i].split('=', 1); env[key] = value; i += 1
     python = words[module-1]
     config_path = spec.get('bridge_config')
-    return [python, '-m', 'agent2telegramtopic', 'close', '--config', config_path,
+    return [python, '-m', 'agent2telegramtopic', subcommand, '--config', config_path,
             '--thread', str(thread)], env
 
 
@@ -282,7 +282,9 @@ def topics(spec, now=None):
         model = model[:40] if isinstance(model, str) else None
         model_vendor = 'claude' if isinstance(model, str) and model.startswith('claude-') else (
             'gpt' if isinstance(model, str) and model.startswith('gpt-') else None)
-        items.append({'thread':lane.get('thread'), 'close_ref':close_ref(spec, lane.get('thread')) if type(lane.get('thread')) is int and lane.get('status') != 'archived' else None, '_tmux_session':lane.get('tmux_session'),
+        ref = close_ref(spec, lane.get('thread')) if type(lane.get('thread')) is int and lane.get('status') != 'archived' else None
+        items.append({'thread':lane.get('thread'), 'close_ref':ref,
+                      'restart_ref':ref if lane.get('status') == 'live' else None, '_tmux_session':lane.get('tmux_session'),
                       'title':' '.join(title.split())[:80] if isinstance(title, str) else None,
                       'agent':str(lane.get('agent') or '')[:30],
                       'status':str(lane.get('status') or '')[:20],

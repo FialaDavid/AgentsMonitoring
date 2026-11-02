@@ -448,6 +448,7 @@ to `127.0.0.1` (default) or a trusted VPN address, never directly to the public
 internet. HTTP login is mandatory beyond loopback; use a trusted encrypted
 transport because HTTP Basic auth alone does not encrypt traffic. Passwords are
 stored as SHA-256 hashes. Restart commands and trusted plugins run as your user.
+Live a2tt topic rows also offer restart and close actions; restarting resumes the same conversation.
 
 ---
 

@@ -3,6 +3,7 @@
 ## Unreleased
 
 - a2tt topic model pills align with the agent model column.
+- Live a2tt topics can restart the topic session while resuming the same conversation.
 - Masterless a2tt bridges get an agents table row with status, restart and their topics; bridge rows accept optional `label` and `vendor` badges.
 - Agent and a2tt topic row icons share a consistent style and order; topic model pills use vendor colours and topic actions align with agent actions.
 

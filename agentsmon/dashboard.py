@@ -521,7 +521,8 @@ function renderTopic(t,stale,span){
     info(compactIcon,compactedLabel,`compacted ${compacted} ago`)];
   const copyIcon=t.attach_command?`<button class="inline-flex align-middle p-1 rounded text-slate-400 hover:text-sky-600 hover:bg-slate-100" data-copy="${esc(t.attach_command)}" title="Copy attach command" aria-label="Copy attach command"><svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></svg></button>`:`<span class="inline-block h-6 w-6 align-middle"></span>`;
   const closeIcon=t.close_ref?`<button class="inline-flex align-middle p-1 rounded text-slate-400 hover:text-rose-600 hover:bg-rose-50" data-close-ref="${esc(t.close_ref)}" data-close-title="${name}" title="Close topic (archive)" aria-label="Close topic (archive)"><svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button>`:`<span class="inline-block h-6 w-6 align-middle"></span>`;
-  tr.innerHTML=`<td class="pl-8 pr-2 py-1 text-xs ${stale?"text-slate-400":"text-slate-500"}"><span class="topic-cell topic-name block font-medium text-slate-600" title="${name}">${name}</span></td><td colspan="${span-1}" class="px-2 py-1 text-xs ${stale?"text-slate-400":"text-slate-500"}"><div class="topic-grid">${cells.join("")}<div class="topic-actions">${copyIcon}${"<span class=\"inline-block h-6 w-6 align-middle\"></span>"}${closeIcon}</div></div></td>`;
+  const restartIcon=t.restart_ref?`<button class="inline-flex align-middle p-1 rounded text-slate-400 hover:text-sky-600 hover:bg-slate-100" data-restart-ref="${esc(t.restart_ref)}" data-restart-title="${name}" title="Restart topic session" aria-label="Restart topic session"><svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.64-6.36M21 3v6h-6"/></svg></button>`:`<span class="inline-block h-6 w-6 align-middle"></span>`;
+  tr.innerHTML=`<td class="pl-8 pr-2 py-1 text-xs ${stale?"text-slate-400":"text-slate-500"}"><span class="topic-cell topic-name block font-medium text-slate-600" title="${name}">${name}</span></td><td colspan="${span-1}" class="px-2 py-1 text-xs ${stale?"text-slate-400":"text-slate-500"}"><div class="topic-grid">${cells.join("")}<div class="topic-actions">${copyIcon}${restartIcon}${closeIcon}</div></div></td>`;
   return tr;
 }
 // Collapsible blocks. The first OPEN_BY_DEFAULT blocks (agents table + the first service cards)
@@ -607,6 +608,7 @@ document.addEventListener("click", e=>{
   }).catch(()=>{ prompt("Copy this command into Terminal:",el.dataset.copy); });
 });
 // Restart / Stop buttons → POST /api/agent/action, then refresh. Stop asks for confirmation.
+document.addEventListener("click",async e=>{const btn=e.target.closest("[data-restart-ref]");if(!btn)return;const title=btn.dataset.restartTitle;if(!confirm(`Restart topic “${title}”? The agent process is killed and resumed with the same conversation; a reply in progress is lost.`))return;try{const r=await fetch("/api/topic/restart",{method:"POST",credentials:"same-origin",headers:{"Content-Type":"application/json","X-Agentsmon":"action"},body:JSON.stringify({ref:btn.dataset.restartRef})});const d=await r.json();showToast(d.message||d.error||"Restart failed");if(d.ok)setTimeout(refresh,600)}catch(_){showToast("Restart failed")}});
 document.addEventListener("click",async e=>{const btn=e.target.closest("[data-close-ref]");if(!btn)return;const title=btn.dataset.closeTitle;if(!confirm(`Close topic “${title}”? Same as /close in Telegram.`))return;try{const r=await fetch("/api/topic/close",{method:"POST",credentials:"same-origin",headers:{"Content-Type":"application/json","X-Agentsmon":"action"},body:JSON.stringify({ref:btn.dataset.closeRef})});const d=await r.json();showToast(d.message||d.error||"Close failed");if(d.ok)setTimeout(refresh,600)}catch(_){showToast("Close failed")}});
 
 document.addEventListener("click", async e=>{
@@ -1043,7 +1045,7 @@ def make_server(host: str, port: int, cfg: dict):
                 return self._denied()
             from urllib.parse import urlparse, parse_qs
             parsed = urlparse(self.path)
-            if parsed.path == "/api/topic/close":
+            if parsed.path in ("/api/topic/close", "/api/topic/restart"):
                 if not _action_allowed(self.headers):
                     self.send_error(403); return
                 try:
@@ -1052,16 +1054,18 @@ def make_server(host: str, port: int, cfg: dict):
                     if not isinstance(ref,str): raise ValueError('unknown topic')
                     from . import bridges
                     cfg=config.load(); target=None; thread=None
+                    command = 'restart' if parsed.path.endswith('/restart') else 'close'
+                    ref_field = 'restart_ref' if command == 'restart' else 'close_ref'
                     for spec in bridges.topic_specs(cfg):
                         found=bridges.topics(spec)
                         for topic in (found or {}).get('items',[]):
-                            if topic.get('close_ref') == ref: target=spec; thread=topic['thread']; break
+                            if topic.get(ref_field) == ref: target=spec; thread=topic['thread']; break
                         if target: break
                     if not target: raise ValueError('unknown topic')
-                    argv, env=bridges.close_command(target,thread)
+                    argv, env=bridges.close_command(target,thread,command)
                     result=subprocess.run(argv,env=env,capture_output=True,text=True,timeout=15)
                     output=(result.stdout or result.stderr).strip()
-                    message=output.splitlines()[0] if output else 'close command failed'
+                    message=output.splitlines()[0] if output else command+' command failed'
                     body=json.dumps({'ok':result.returncode==0,'message':message}).encode(); status=200 if result.returncode==0 else 409
                 except Exception as exc:
                     body=json.dumps({'ok':False,'message':str(exc)}).encode(); status=400 if isinstance(exc,ValueError) else 500

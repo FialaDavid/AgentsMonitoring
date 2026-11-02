@@ -160,6 +160,9 @@ class Health(unittest.TestCase):
             self.assertEqual(argv, [PY, '-m', 'agent2telegramtopic', 'close', '--config',
                                     sp['bridge_config'], '--thread', '17'])
             self.assertEqual(env['PYTHONPATH'], '/modules')
+            self.assertEqual(bridges.close_command(sp, 17, 'restart')[0],
+                             [PY, '-m', 'agent2telegramtopic', 'restart', '--config',
+                              sp['bridge_config'], '--thread', '17'])
 
 if __name__ == '__main__':
     unittest.main()

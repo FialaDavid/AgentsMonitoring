@@ -39,7 +39,8 @@ class Server(unittest.TestCase):
         self.cfg = {'agents': [{'name': 'Boss'}], 'pinned_daemons': [], 'daemons': [self.sp]}
 
     def test_topics_are_attached_to_the_master_with_display_fields_only(self):
-        write_status(self.sp, [{**LANE, 'last_activity': int(time.time())-120}])
+        write_status(self.sp, [{**LANE, 'last_activity': int(time.time())-120},
+                               {**LANE, 'thread': 8, 'status': 'parked'}])
         boss = agents_for(self.cfg)['Boss']
         t = boss['topics'][0]
         self.assertFalse(boss['topics_stale'])
@@ -53,6 +54,8 @@ class Server(unittest.TestCase):
         for private in ('secret', '-100123'):
             self.assertNotIn(private, shown)
         self.assertIn('attach_command', t)
+        self.assertEqual(t['restart_ref'], t['close_ref'])
+        self.assertIsNone(boss['topics'][1]['restart_ref'])
 
     def test_percent_needs_both_context_values(self):
         write_status(self.sp, [{**LANE, 'ctx_window': None}, {**LANE, 'ctx_tokens': None}])
@@ -110,6 +113,8 @@ class Page(unittest.TestCase):
         body = page[page.index('function renderTopic'):]
         body = body[:body.index('// Collapsible blocks')]
         self.assertIn('data-copy', body)
+        self.assertIn('data-restart-ref', body)
+        self.assertIn('Restart topic session', body)
         self.assertNotIn('data-act', body)
 
     def test_topic_name_and_model_render_in_separate_column_cells(self):
