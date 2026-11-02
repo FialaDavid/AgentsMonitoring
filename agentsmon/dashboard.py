@@ -98,7 +98,7 @@ PAGE = r"""<!DOCTYPE html><html lang="en"><head>
 <title>Agents Monitoring</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🤖</text></svg>">
 <script src="/static/tailwind.js"></script>
-<style>@media(max-width:640px){.agent-table .mobile-hide{display:none}.agent-table{min-width:0!important;width:100%!important}.agent-table col:nth-child(1){width:25%!important}.agent-table col:nth-child(2){width:25%!important}.agent-table col:nth-child(5){width:30%!important}.agent-table col:last-child{width:20%!important}}.bar{transition:opacity .15s ease}.bar:hover{opacity:.65}.usage-day-divider::before{content:"";position:absolute;left:-3px;top:-4px;bottom:-4px;width:1px;border-radius:1px;background:#94a3b8}.copied-flash{color:#059669!important;transition:color .1s}#toast{transition:opacity .2s ease}.agent-rows td{overflow:hidden}.sid{display:block;overflow:hidden;text-overflow:ellipsis}.topic-grid{display:grid;grid-template-columns:12rem 7rem 6rem 7rem 7rem 6rem 1.5rem 1.5rem;align-items:center;gap:.25rem .75rem}.topic-cell{min-width:0;overflow-wrap:anywhere}.topic-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.topic-state{display:inline-flex;align-items:center;gap:.375rem;white-space:nowrap}@media(max-width:600px){.topic-grid{width:calc(100vw - 3rem);grid-template-columns:repeat(2,minmax(0,1fr));gap:.25rem .5rem}}</style>
+<style>@media(max-width:640px){.agent-table .mobile-hide{display:none}.agent-table{min-width:0!important;width:100%!important}.agent-table col:nth-child(1){width:25%!important}.agent-table col:nth-child(2){width:25%!important}.agent-table col:nth-child(5){width:30%!important}.agent-table col:last-child{width:20%!important}}.bar{transition:opacity .15s ease}.bar:hover{opacity:.65}.usage-day-divider::before{content:"";position:absolute;left:-3px;top:-4px;bottom:-4px;width:1px;border-radius:1px;background:#94a3b8}.copied-flash{color:#059669!important;transition:color .1s}#toast{transition:opacity .2s ease}.agent-rows td{overflow:hidden}.sid{display:block;overflow:hidden;text-overflow:ellipsis}.topic-grid{display:grid;grid-template-columns:minmax(8rem,2fr) minmax(5.5rem,1fr) minmax(4rem,.8fr) minmax(5rem,1fr) minmax(5rem,1fr) minmax(5rem,1fr) auto;align-items:center;width:100%;gap:0}.topic-cell{min-width:0;overflow-wrap:anywhere}.topic-actions{min-width:0;display:flex;justify-content:flex-end}.topic-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.topic-state{display:inline-flex;align-items:center;gap:.375rem;white-space:nowrap}@media(max-width:600px){.topic-grid{width:100%;grid-template-columns:repeat(2,minmax(0,1fr));gap:.25rem .5rem}.topic-actions{grid-column:1/-1}}</style>
 </head><body class="bg-slate-50 text-slate-800 antialiased">
 <div id="toast" class="fixed left-1/2 bottom-5 -translate-x-1/2 bg-slate-800 text-white text-sm px-2 py-1.5 rounded-md shadow-lg opacity-0 pointer-events-none" style="z-index:50">&nbsp;</div>
 <div id="app" class="mx-auto px-5 py-6" style="max-width:1100px">
@@ -414,14 +414,21 @@ function renderColumns(root,columns){
   q(root,"colgroup").innerHTML=widths.map(([w,c])=>`<col class="${c}" style="width:${w}px">`).join('');
   table.style.minWidth=widths.reduce((a,[w])=>a+w,0)+"px";
 }
-function renderActions(a,table){
+function renderActions(a,table,slot=null){
   const stopped=a.status==="Stopped (manual)";
   const defs=a.plugin?(a.row_actions||[]):(a.actions===false?[]:[{id:"restart",label:"Restart "+a.name,icon:"restart"},
     stopped?{id:"stop",label:"Remove "+a.name,icon:"stop",confirm:`Remove agent "${a.name}" from Agents Monitoring? Its conversation files stay on disk.`}
            :{id:"stop",label:"Stop "+a.name,icon:"stop"}]);
   const paths={restart:'M21 12a9 9 0 1 1-2.64-6.36M21 3v6h-6',stop:'M18 6 6 18M6 6l12 12',run:'M8 5l11 7-11 7z'};
-  const buttons=defs.map(x=>`<button class="agent-act inline-flex align-middle p-1 rounded text-slate-400 ${x.icon==='stop'?'ml-0.5 hover:text-rose-600 hover:bg-rose-50':'hover:text-sky-600 hover:bg-slate-100'}" data-act="${esc(x.id)}" data-name="${esc(a.name)}" ${a.plugin?`data-table="${esc(table)}" data-row="${esc(a.id)}"`:''} data-confirm="${esc(x.confirm||'')}" title="${esc(x.label)}"><svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="${paths[x.icon]||paths.run}"/></svg></button>`).join("");
-  return buttons+((a.actions===false||a.actions_locked)?'<span class="text-xs text-slate-300 ml-0.5 align-middle" title="Actions controlled by the provider">🔒</span>':'');
+  const button=x=>`<button class="agent-act inline-flex align-middle p-1 rounded text-slate-400 ${x.icon==='stop'?'hover:text-rose-600 hover:bg-rose-50':'hover:text-sky-600 hover:bg-slate-100'}" data-act="${esc(x.id)}" data-name="${esc(a.name)}" ${a.plugin?`data-table="${esc(table)}" data-row="${esc(a.id)}"`:''} data-confirm="${esc(x.confirm||'')}" title="${esc(x.label)}"><svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="${paths[x.icon]||paths.run}"/></svg></button>`;
+  if(a.plugin){
+    const buttons=defs.map(button).join("");
+    return buttons+((a.actions===false||a.actions_locked)?'<span class="text-xs text-slate-300 ml-0.5 align-middle" title="Actions controlled by the provider">🔒</span>':'');
+  }
+  const x=defs.find(d=>d.id===slot);
+  const icon=x?button(x):'<span class="inline-block h-6 w-6 align-middle"></span>';
+  const lock=slot==="stop"&&(a.actions===false||a.actions_locked)?'<span class="text-xs text-slate-300 ml-0.5 align-middle" title="Actions controlled by the provider">🔒</span>':'';
+  return icon+lock;
 }
 function renderAgents(root, agents, summary=null, columns=[]){
   renderColumns(root, columns);
@@ -472,7 +479,7 @@ function renderAgents(root, agents, summary=null, columns=[]){
     const nameCell=(a.kind!=="daemon")
       ? `<span class="agent-name cursor-pointer hover:text-sky-600" data-copy="${esc(attachCmd)}" title="${esc(attachCmd)} (click to copy)">${nameInner}</span>`
       : nameInner;
-    const copyIcon=a.attach_command?` <button class="inline-flex align-middle ml-1 text-slate-500 hover:text-sky-600" data-copy="${esc(a.attach_command)}" title="Copy attach command" aria-label="Copy attach command"><svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></svg></button>`:"";
+    const copyIcon=a.attach_command?`<button class="inline-flex align-middle p-1 rounded text-slate-400 hover:text-sky-600 hover:bg-slate-100" data-copy="${esc(a.attach_command)}" title="Copy attach command" aria-label="Copy attach command"><svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></svg></button>`:(a.plugin?"":`<span class="inline-block h-6 w-6 align-middle"></span>`);
     // Telegram deep-link icon for agents bridged to a bot (opens t.me/<bot> in a new tab).
     const tg=a.telegram_url?` <a href="${esc(a.telegram_url)}" target="_blank" rel="noopener" title="Open @${esc(a.telegram_bot)} in Telegram" class="inline-flex align-middle ml-1 hover:opacity-70"><svg viewBox="0 0 24 24" class="h-4 w-4" fill="#229ED9"><path d="M9.78 18.65l.28-4.23 7.68-6.92c.34-.31-.07-.46-.52-.19L7.74 13.3 3.64 12c-.88-.25-.89-.86.2-1.3l15.97-6.16c.73-.27 1.43.18 1.15 1.3l-2.72 12.81c-.19.91-.74 1.13-1.5.71L12.6 16.3l-1.99 1.93c-.23.23-.42.42-.83.42z"/></svg></a>`:"";
     const recovery=a.restart_warning?`<br><span class="text-[11px] text-amber-600" title="${esc(a.restart_warning)}">⚠ Fresh conversation</span>`:"";
@@ -483,7 +490,7 @@ function renderAgents(root, agents, summary=null, columns=[]){
       `<td class="mobile-hide px-2 py-1.5 text-slate-500 text-xs whitespace-nowrap" title="${esc(a.status_detail||'')}">${a.age!=null?"ago "+fmtDuration(a.age):"–"}</td>`+
       `<td class="px-2 py-1.5" title="${esc(statusTip)}"><span class="inline-flex items-center gap-1.5 whitespace-nowrap ${stCls}"><span class="h-2 w-2 rounded-full ${dot} shrink-0"></span><span class="flex flex-col">${esc(statusTxt)}</span></span></td>`+
       columns.map(c=>`<td class="px-2 py-1.5 text-xs">${renderCell((a.cells||{})[c.id])}</td>`).join("")+
-      `<td class="px-2 py-1.5 text-right whitespace-nowrap">${renderActions(a, root.dataset.svc)}${copyIcon}</td>`;
+      `<td class="px-2 py-1.5 text-right whitespace-nowrap">${a.plugin?renderActions(a,root.dataset.svc)+copyIcon:renderActions(a,root.dataset.svc,"restart")+copyIcon+renderActions(a,root.dataset.svc,"stop")}</td>`;
     tb.appendChild(tr);
     (a.topics||[]).forEach(t=>tb.appendChild(renderTopic(t,a.topics_stale,6+columns.length)));
   });
@@ -499,7 +506,7 @@ function renderTopic(t,stale,span){
   const state=`<span class="topic-state ${stale?"text-slate-400":run[2]}"${stale?' title="bridge status stale"':""}><span class="h-2 w-2 rounded-full ${stale?"bg-slate-300":run[0]} shrink-0"></span>${esc(run[1])}</span>`;
   const name=esc(t.title||"topic "+t.thread);
   const contextClass=t.ctx_percent!=null&&t.ctx_percent>=80?"text-amber-600":"";
-  const vendorCls=t.model_vendor==="claude"?"bg-amber-100 text-amber-800":t.model_vendor==="gpt"?"bg-emerald-100 text-emerald-800":"bg-slate-100 text-slate-700";
+  const vendorCls=t.model_vendor==="claude"?VENDOR.anthropic:t.model_vendor==="gpt"?VENDOR.openai:VENDOR.other;
   const model=t.model?`<span class="topic-cell" title="${esc(t.model)}"><span class="inline-block rounded px-1.5 py-0.5 text-[11px] font-medium ${vendorCls}">${esc(t.model_label||"—")}</span></span>`:`<span class="topic-cell">—</span>`;
   const activity=age(t.last_activity_age); const compacted=age(t.last_compact_age);
   const activityLabel=activity?activity+" ago":""; const compactedLabel=compacted?compacted+" ago":"";
@@ -511,9 +518,9 @@ function renderTopic(t,stale,span){
     `<span class="topic-cell">${state}</span>`,model,
     info(activityIcon,activityLabel,`last activity ${activity} ago`),info(contextIcon,ctx,`context ${ctx}`,contextClass),
     info(compactIcon,compactedLabel,`compacted ${compacted} ago`)];
-  const copyIcon=t.attach_command?`<span class="topic-cell"><button class="inline-flex align-middle text-slate-500 hover:text-sky-600" data-copy="${esc(t.attach_command)}" title="Copy attach command" aria-label="Copy attach command"><svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></svg></button></span>`:"";
-  const closeIcon=t.close_ref?`<span class="topic-cell"><button class="inline-flex align-middle text-slate-500 hover:text-rose-600" data-close-ref="${esc(t.close_ref)}" data-close-title="${name}" title="Close topic (archive)" aria-label="Close topic (archive)"><svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M3 7h18v13H3zM2 4h20v3H2zM10 12h4"/></svg></button></span>`:"";
-  tr.innerHTML=`<td colspan="${span}" class="pl-8 pr-2 py-1 text-xs ${stale?"text-slate-400":"text-slate-500"}"><div class="topic-grid">${cells.join("")}${copyIcon||"<span></span>"}${closeIcon||"<span></span>"}</div></td>`;
+  const copyIcon=t.attach_command?`<button class="inline-flex align-middle p-1 rounded text-slate-400 hover:text-sky-600 hover:bg-slate-100" data-copy="${esc(t.attach_command)}" title="Copy attach command" aria-label="Copy attach command"><svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></svg></button>`:`<span class="inline-block h-6 w-6 align-middle"></span>`;
+  const closeIcon=t.close_ref?`<button class="inline-flex align-middle p-1 rounded text-slate-400 hover:text-rose-600 hover:bg-rose-50" data-close-ref="${esc(t.close_ref)}" data-close-title="${name}" title="Close topic (archive)" aria-label="Close topic (archive)"><svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button>`:`<span class="inline-block h-6 w-6 align-middle"></span>`;
+  tr.innerHTML=`<td colspan="${span}" class="pl-8 pr-2 py-1 text-xs ${stale?"text-slate-400":"text-slate-500"}"><div class="topic-grid">${cells.join("")}<div class="topic-actions">${"<span class=\"inline-block h-6 w-6 align-middle\"></span>"}${copyIcon}${closeIcon}</div></div></td>`;
   return tr;
 }
 // Collapsible blocks. The first OPEN_BY_DEFAULT blocks (agents table + the first service cards)

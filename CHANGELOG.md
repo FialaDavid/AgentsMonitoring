@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Agent and a2tt topic row icons share a consistent style and order; topic model pills use vendor colours and topic actions align with agent actions.
+
 - `usage_plugin.view: "section"` shows usage as one block per account (Session/Weekly bars with used/left, reset time and a time-pace marker; blocks past the marker are red). `"column"` (default) keeps the table column.
 - Usage bars and availability timelines pick their block count from the available width; on phone-width screens the agents table hides Session ID and Started.
 - a2tt topic sub-rows use aligned cells with one state word (`active`, `idle`, `parked`, `waiting`, `not running`); context shows a percentage when the bridge reports the window size.
