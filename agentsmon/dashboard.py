@@ -15,6 +15,7 @@ import hmac
 import json
 from pathlib import Path
 import os
+import shlex
 import shutil
 import subprocess
 import threading
@@ -467,10 +468,11 @@ function renderAgents(root, agents, summary=null, columns=[]){
     // Only tmux agents can be attached to; daemons (kind "daemon", e.g. OpenClaw/Hermes) aren't in
     // tmux. For a tmux agent, clicking its name copies the attach command (toast feedback so the
     // column width never jumps).
-    const attachCmd=`tmux attach -t "${a.tmux_session||a.name}"`;
+    const attachCmd=a.attach_command||"";
     const nameCell=(a.kind!=="daemon")
       ? `<span class="agent-name cursor-pointer hover:text-sky-600" data-copy="${esc(attachCmd)}" title="${esc(attachCmd)} (click to copy)">${nameInner}</span>`
       : nameInner;
+    const copyIcon=a.attach_command?` <button class="inline-flex align-middle ml-1 text-slate-500 hover:text-sky-600" data-copy="${esc(a.attach_command)}" title="Copy attach command" aria-label="Copy attach command"><svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></svg></button>`:"";
     // Telegram deep-link icon for agents bridged to a bot (opens t.me/<bot> in a new tab).
     const tg=a.telegram_url?` <a href="${esc(a.telegram_url)}" target="_blank" rel="noopener" title="Open @${esc(a.telegram_bot)} in Telegram" class="inline-flex align-middle ml-1 hover:opacity-70"><svg viewBox="0 0 24 24" class="h-4 w-4" fill="#229ED9"><path d="M9.78 18.65l.28-4.23 7.68-6.92c.34-.31-.07-.46-.52-.19L7.74 13.3 3.64 12c-.88-.25-.89-.86.2-1.3l15.97-6.16c.73-.27 1.43.18 1.15 1.3l-2.72 12.81c-.19.91-.74 1.13-1.5.71L12.6 16.3l-1.99 1.93c-.23.23-.42.42-.83.42z"/></svg></a>`:"";
     const recovery=a.restart_warning?`<br><span class="text-[11px] text-amber-600" title="${esc(a.restart_warning)}">⚠ Fresh conversation</span>`:"";
@@ -481,7 +483,7 @@ function renderAgents(root, agents, summary=null, columns=[]){
       `<td class="mobile-hide px-2 py-1.5 text-slate-500 text-xs whitespace-nowrap" title="${esc(a.status_detail||'')}">${a.age!=null?"ago "+fmtDuration(a.age):"–"}</td>`+
       `<td class="px-2 py-1.5" title="${esc(statusTip)}"><span class="inline-flex items-center gap-1.5 whitespace-nowrap ${stCls}"><span class="h-2 w-2 rounded-full ${dot} shrink-0"></span><span class="flex flex-col">${esc(statusTxt)}</span></span></td>`+
       columns.map(c=>`<td class="px-2 py-1.5 text-xs">${renderCell((a.cells||{})[c.id])}</td>`).join("")+
-      `<td class="px-2 py-1.5 text-right whitespace-nowrap">${renderActions(a, root.dataset.svc)}</td>`;
+      `<td class="px-2 py-1.5 text-right whitespace-nowrap">${renderActions(a, root.dataset.svc)}${copyIcon}</td>`;
     tb.appendChild(tr);
     (a.topics||[]).forEach(t=>tb.appendChild(renderTopic(t,a.topics_stale,6+columns.length)));
   });
@@ -501,7 +503,8 @@ function renderTopic(t,stale,span){
   const cells=[`<span class="topic-cell topic-name font-medium text-slate-600" title="${name}">${name}</span>`,
     `<span class="topic-cell">${state}</span>`,`<span class="topic-cell">${ago("last activity",t.last_activity_age)}</span>`,
     `<span class="topic-cell ${contextClass}">${ctx}</span>`,`<span class="topic-cell">${ago("compacted",t.last_compact_age)}</span>`,model];
-  tr.innerHTML=`<td colspan="${span}" class="pl-8 pr-2 py-1 text-xs ${stale?"text-slate-400":"text-slate-500"}"><div class="topic-grid">${cells.join("")}</div></td>`;
+  const copyIcon=t.attach_command?`<span class="topic-cell"><button class="inline-flex align-middle text-slate-500 hover:text-sky-600" data-copy="${esc(t.attach_command)}" title="Copy attach command" aria-label="Copy attach command"><svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></svg></button></span>`:"";
+  tr.innerHTML=`<td colspan="${span}" class="pl-8 pr-2 py-1 text-xs ${stale?"text-slate-400":"text-slate-500"}"><div class="topic-grid">${cells.join("")}${copyIcon}</div></td>`;
   return tr;
 }
 // Collapsible blocks. The first OPEN_BY_DEFAULT blocks (agents table + the first service cards)
@@ -568,8 +571,8 @@ function copyText(text){
   // Fallback for plain http (e.g. over a VPN IP): clipboard API needs a secure context.
   const ta=document.createElement("textarea"); ta.value=text; ta.style.position="fixed"; ta.style.opacity="0";
   document.body.appendChild(ta); ta.focus(); ta.select();
-  try{ document.execCommand("copy"); }catch(e){} document.body.removeChild(ta);
-  return Promise.resolve();
+  let copied=false; try{ copied=document.execCommand("copy"); }catch(e){} document.body.removeChild(ta);
+  return copied?Promise.resolve():Promise.reject(new Error("copy unavailable"));
 }
 let _toastTimer;
 function showToast(msg){
@@ -584,7 +587,7 @@ document.addEventListener("click", e=>{
     el.classList.add("copied-flash");
     setTimeout(()=>el.classList.remove("copied-flash"), 700);
     showToast("✓ Copied to clipboard");
-  });
+  }).catch(()=>{ prompt("Copy this command into Terminal:",el.dataset.copy); });
 });
 // Restart / Stop buttons → POST /api/agent/action, then refresh. Stop asks for confirmation.
 document.addEventListener("click", async e=>{
@@ -678,6 +681,10 @@ def _tg_link(value: str) -> tuple[str, str]:
     return f"https://t.me/{uname}", uname
 
 
+def _attach_command(socket: str, session: str) -> str:
+    return f"env -u TMUX tmux -S {shlex.quote(socket)} attach -t {shlex.quote('='+session)}"
+
+
 def _agents_state(cfg: dict) -> list[dict]:
     """Pinned daemons (OpenClaw/Hermes…) first, then running tmux agents, with config display
     overrides (tag/label → label, vendor → tag colour) applied."""
@@ -717,6 +724,12 @@ def _agents_state(cfg: dict) -> list[dict]:
         master = next((a for a in agents if a.get("name") == spec["master"]), None)
         found = bridges.topics(spec) if master else None
         if found:
+            tmpdir = found.get('tmux_tmpdir') or '/tmp'
+            socket = str((Path(tmpdir).expanduser() / f'tmux-{os.getuid()}' / 'default').absolute())
+            for topic in found['items']:
+                session = topic.pop('_tmux_session', None)
+                if session and topic.get('alive'):
+                    topic['attach_command'] = _attach_command(socket, session)
             master["topics"] = master.get("topics", []) + found["items"]
             master["topics_stale"] = master.get("topics_stale", False) or found["stale"]
     # Telegram deep-link icon. Two sources, explicit wins:
@@ -728,6 +741,11 @@ def _agents_state(cfg: dict) -> list[dict]:
                 if d.get("name") and d.get("telegram")}
     links = detect.telegram_links()
     for a in agents:
+        if a.get('kind') != 'daemon':
+            tmpdir = os.environ.get('TMUX_TMPDIR') or '/tmp'
+            socket = str((Path(tmpdir).expanduser() / f'tmux-{os.getuid()}' / 'default').absolute())
+            session = a.get('tmux_session') or a.get('name')
+            a['attach_command'] = _attach_command(socket, session)
         bot = explicit.get(a.get("name")) or links.get(a.get("name"))
         if bot:
             url, uname = _tg_link(bot)

@@ -50,8 +50,9 @@ class Server(unittest.TestCase):
         self.assertEqual((t['ctx_tokens'], t['ctx_percent']), (50000, 25.0))
         self.assertEqual((t['model'], t['model_label']), ('claude-opus-5-5', 'O5.5'))
         shown = json.dumps(boss['topics'])
-        for private in ('secret', '-100123', 'T 7'):
+        for private in ('secret', '-100123'):
             self.assertNotIn(private, shown)
+        self.assertIn('attach_command', t)
 
     def test_percent_needs_both_context_values(self):
         write_status(self.sp, [{**LANE, 'ctx_window': None}, {**LANE, 'ctx_tokens': None}])
@@ -100,7 +101,7 @@ class Page(unittest.TestCase):
         self.assertIn('renderTopic', page)
         body = page[page.index('function renderTopic'):]
         body = body[:body.index('// Collapsible blocks')]
-        self.assertNotIn('<button', body)
+        self.assertIn('data-copy', body)
         self.assertNotIn('data-act', body)
 
     def test_topic_row_uses_plain_words(self):

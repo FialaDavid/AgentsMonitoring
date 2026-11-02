@@ -254,7 +254,7 @@ def topics(spec, now=None):
         title = lane.get('title')
         model = lane.get('model')
         model = model[:40] if isinstance(model, str) else None
-        items.append({'thread':lane.get('thread'),
+        items.append({'thread':lane.get('thread'), '_tmux_session':lane.get('tmux_session'),
                       'title':' '.join(title.split())[:80] if isinstance(title, str) else None,
                       'agent':str(lane.get('agent') or '')[:30],
                       'status':str(lane.get('status') or '')[:20],
@@ -264,7 +264,8 @@ def topics(spec, now=None):
                       'ctx_tokens':used, 'ctx_window':window,
                       'model':model, 'model_label':_model_label(model),
                       'ctx_percent':round(100*used/window, 1) if used is not None and window else None})
-    return {'items':items, 'stale':stale_seconds(data, now) is not None}
+    return {'items':items, 'stale':stale_seconds(data, now) is not None,
+            'tmux_tmpdir':data.get('tmux_tmpdir')}
 
 
 def master_specs(cfg):
