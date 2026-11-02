@@ -64,7 +64,7 @@ AGENT_TABLE = r"""
     <div class="rounded-lg border border-slate-200 bg-white overflow-x-auto">
       <table class="agent-table w-full text-sm" style="table-layout:fixed;min-width:852px"><colgroup><col style="width:170px"><col style="width:150px"><col class="mobile-hide" style="width:230px"><col class="mobile-hide" style="width:97px"><col style="width:140px"><col style="width:65px"></colgroup><thead>
         <tr class="text-[11px] uppercase tracking-wide text-slate-400 border-b border-slate-100">
-          <th class="text-left font-medium px-2 py-2">Agent</th>
+          <th class="text-left font-medium pl-4 pr-2 py-2">Agent</th>
           <th class="text-left font-medium px-2 py-2">Model</th>
           <th class="mobile-hide text-left font-medium px-2 py-2">Session ID / Port</th>
           <th class="mobile-hide text-left font-medium px-2 py-2">Started</th>
@@ -486,7 +486,7 @@ function renderAgents(root, agents, summary=null, columns=[]){
     const tg=a.telegram_url?` <a href="${esc(a.telegram_url)}" target="_blank" rel="noopener" title="Open @${esc(a.telegram_bot)} in Telegram" class="inline-flex align-middle ml-1 hover:opacity-70"><svg viewBox="0 0 24 24" class="h-4 w-4" fill="#229ED9"><path d="M9.78 18.65l.28-4.23 7.68-6.92c.34-.31-.07-.46-.52-.19L7.74 13.3 3.64 12c-.88-.25-.89-.86.2-1.3l15.97-6.16c.73-.27 1.43.18 1.15 1.3l-2.72 12.81c-.19.91-.74 1.13-1.5.71L12.6 16.3l-1.99 1.93c-.23.23-.42.42-.83.42z"/></svg></a>`:"";
     const recovery=a.restart_warning?`<br><span class="text-[11px] text-amber-600" title="${esc(a.restart_warning)}">⚠ Fresh conversation</span>`:"";
     tr.innerHTML=
-      `<td class="px-2 py-1.5 font-medium text-slate-700 whitespace-nowrap" style="text-overflow:ellipsis" title="${esc(a.name)}">${nameCell}${tg}${recovery}</td>`+
+      `<td class="pl-4 pr-2 py-1.5 font-medium text-slate-700 whitespace-nowrap" style="text-overflow:ellipsis" title="${esc(a.name)}">${nameCell}${tg}${recovery}</td>`+
       `<td class="px-2 py-1.5 whitespace-nowrap"><span title="${esc(a.account?a.label+' · Account: '+a.account:a.label)}" class="inline-block rounded px-1.5 py-0.5 text-[11px] font-medium align-middle ${tcls}" style="max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(a.label)}</span>${a.metadata_error?'<br><span class="text-[11px] text-amber-600">Incomplete data</span>':""}</td>`+
       `<td class="mobile-hide px-2 py-1.5">${sid}</td>`+
       `<td class="mobile-hide px-2 py-1.5 text-slate-500 text-xs whitespace-nowrap" title="${esc(a.status_detail||'')}">${a.age!=null?"ago "+fmtDuration(a.age):"–"}</td>`+
@@ -522,7 +522,7 @@ function renderTopic(t,stale,span){
   const copyIcon=t.attach_command?`<button class="inline-flex align-middle p-1 rounded text-slate-400 hover:text-sky-600 hover:bg-slate-100" data-copy="${esc(t.attach_command)}" title="Copy attach command" aria-label="Copy attach command"><svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></svg></button>`:`<span class="inline-block h-6 w-6 align-middle"></span>`;
   const closeIcon=t.close_ref?`<button class="inline-flex align-middle p-1 rounded text-slate-400 hover:text-rose-600 hover:bg-rose-50" data-close-ref="${esc(t.close_ref)}" data-close-title="${name}" title="Close topic (archive)" aria-label="Close topic (archive)"><svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button>`:`<span class="inline-block h-6 w-6 align-middle"></span>`;
   const restartIcon=t.restart_ref?`<button class="inline-flex align-middle p-1 rounded text-slate-400 hover:text-sky-600 hover:bg-slate-100" data-restart-ref="${esc(t.restart_ref)}" data-restart-title="${name}" title="Restart topic session" aria-label="Restart topic session"><svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.64-6.36M21 3v6h-6"/></svg></button>`:`<span class="inline-block h-6 w-6 align-middle"></span>`;
-  tr.innerHTML=`<td class="pl-8 pr-2 py-1 text-xs ${stale?"text-slate-400":"text-slate-500"}"><span class="topic-cell topic-name block font-medium text-slate-600" title="${name}">${name}</span></td><td colspan="${span-1}" class="px-2 py-1 text-xs ${stale?"text-slate-400":"text-slate-500"}"><div class="topic-grid">${cells.join("")}<div class="topic-actions">${copyIcon}${restartIcon}${closeIcon}</div></div></td>`;
+  tr.innerHTML=`<td class="pl-10 pr-2 py-1 text-xs ${stale?"text-slate-400":"text-slate-500"}"><span class="topic-cell topic-name block font-medium text-slate-600" title="${name}">${name}</span></td><td colspan="${span-1}" class="px-2 py-1 text-xs ${stale?"text-slate-400":"text-slate-500"}"><div class="topic-grid">${cells.join("")}<div class="topic-actions">${copyIcon}${restartIcon}${closeIcon}</div></div></td>`;
   return tr;
 }
 // Collapsible blocks. The first OPEN_BY_DEFAULT blocks (agents table + the first service cards)

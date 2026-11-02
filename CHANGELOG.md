@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Agents table names and the Agent header have a left inset matching the table's right inset.
 - a2tt topic model pills align with the agent model column.
 - Live a2tt topics can restart the topic session while resuming the same conversation.
 - Masterless a2tt bridges get an agents table row with status, restart and their topics; bridge rows accept optional `label` and `vendor` badges.

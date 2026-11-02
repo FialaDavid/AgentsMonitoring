@@ -118,9 +118,11 @@ class Page(unittest.TestCase):
         self.assertNotIn('data-act', body)
 
     def test_topic_name_and_model_render_in_separate_column_cells(self):
+        self.assertIn('<th class="text-left font-medium pl-4 pr-2 py-2">Agent</th>', dashboard.PAGE)
+        self.assertIn('<td class="pl-4 pr-2 py-1.5 font-medium text-slate-700 whitespace-nowrap"', dashboard.PAGE)
         body = dashboard.PAGE[dashboard.PAGE.index('function renderTopic'):]
         body = body[:body.index('// Collapsible blocks')]
-        self.assertIn('<td class="pl-8 pr-2 py-1 text-xs', body)
+        self.assertIn('<td class="pl-10 pr-2 py-1 text-xs', body)
         self.assertIn('topic-name block font-medium text-slate-600', body)
         self.assertIn('<td colspan="${span-1}" class="px-2 py-1 text-xs', body)
         self.assertIn('const cells=[model,', body)
