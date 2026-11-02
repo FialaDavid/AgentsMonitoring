@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Masterless a2tt bridges get an agents table row with status, restart and their topics; bridge rows accept optional `label` and `vendor` badges.
 - Agent and a2tt topic row icons share a consistent style and order; topic model pills use vendor colours and topic actions align with agent actions.
 
 - `usage_plugin.view: "section"` shows usage as one block per account (Session/Weekly bars with used/left, reset time and a time-pace marker; blocks past the marker are red). `"column"` (default) keeps the table column.

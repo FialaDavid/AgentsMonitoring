@@ -460,15 +460,17 @@ function renderAgents(root, agents, summary=null, columns=[]){
     }else if(a.kind==="daemon" && a.port){
       // Daemons (gateways) have no session id — show the port they actually listen on instead.
       sid=`<span class="font-mono text-xs text-slate-500 whitespace-nowrap" title="gateway port">:${a.port}</span>`;
+    }else if(a.bridge_row){
+      sid=`<span class="text-xs text-slate-300">—</span>`;
     }else{
       sid=`<span class="text-xs text-slate-300 cursor-help" title="${esc(tip)}">— none</span>`;
     }
-    const ok=a.alive&&!a.needs_login; const dot=a.needs_login?"bg-amber-500":(ok?"bg-emerald-500":(a.plugin?"bg-rose-500":"bg-slate-300"));
+    const ok=a.alive&&!a.needs_login; const dot=a.bridge_row?(a.status==="Running"?"bg-emerald-500":a.status==="Stale"?"bg-amber-500":"bg-rose-500"):(a.needs_login?"bg-amber-500":(ok?"bg-emerald-500":(a.plugin?"bg-rose-500":"bg-slate-300")));
     // Health is the visible status for every agent; latency is supplementary detail.
     const statusTxt=a.status||(ok?"Running":"Idle");
     const statusTip=[a.status_detail||a.status,
       ok&&a.latency_ms!=null?`latency ${fmtLat(a.latency_ms)}`:""].filter(Boolean).join(" · ");
-    const stCls=a.needs_login?"text-amber-600":(ok?"text-slate-600":"text-slate-400");
+    const stCls=a.bridge_row?(a.status==="Running"?"text-slate-600":a.status==="Stale"?"text-amber-600":"text-rose-600"):(a.needs_login?"text-amber-600":(ok?"text-slate-600":"text-slate-400"));
     const tr=document.createElement("tr"); tr.className="border-b border-slate-100 last:border-0";
     const nameBg=NAME_BG[a.name_color];
     const nameInner=nameBg?`<span class="inline-block rounded px-1.5 py-0.5 ${nameBg}">${esc(a.name)}</span>`:esc(a.name);
@@ -476,7 +478,7 @@ function renderAgents(root, agents, summary=null, columns=[]){
     // tmux. For a tmux agent, clicking its name copies the attach command (toast feedback so the
     // column width never jumps).
     const attachCmd=a.attach_command||"";
-    const nameCell=(a.kind!=="daemon")
+    const nameCell=(a.kind!=="daemon"&&!a.bridge_row)
       ? `<span class="agent-name cursor-pointer hover:text-sky-600" data-copy="${esc(attachCmd)}" title="${esc(attachCmd)} (click to copy)">${nameInner}</span>`
       : nameInner;
     const copyIcon=a.attach_command?`<button class="inline-flex align-middle p-1 rounded text-slate-400 hover:text-sky-600 hover:bg-slate-100" data-copy="${esc(a.attach_command)}" title="Copy attach command" aria-label="Copy attach command"><svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></svg></button>`:(a.plugin?"":`<span class="inline-block h-6 w-6 align-middle"></span>`);
@@ -490,7 +492,7 @@ function renderAgents(root, agents, summary=null, columns=[]){
       `<td class="mobile-hide px-2 py-1.5 text-slate-500 text-xs whitespace-nowrap" title="${esc(a.status_detail||'')}">${a.age!=null?"ago "+fmtDuration(a.age):"–"}</td>`+
       `<td class="px-2 py-1.5" title="${esc(statusTip)}"><span class="inline-flex items-center gap-1.5 whitespace-nowrap ${stCls}"><span class="h-2 w-2 rounded-full ${dot} shrink-0"></span><span class="flex flex-col">${esc(statusTxt)}</span></span></td>`+
       columns.map(c=>`<td class="px-2 py-1.5 text-xs">${renderCell((a.cells||{})[c.id])}</td>`).join("")+
-      `<td class="px-2 py-1.5 text-right whitespace-nowrap">${a.plugin?renderActions(a,root.dataset.svc)+copyIcon:copyIcon+renderActions(a,root.dataset.svc,"restart")+renderActions(a,root.dataset.svc,"stop")}</td>`;
+      `<td class="px-2 py-1.5 text-right whitespace-nowrap">${a.plugin?renderActions(a,root.dataset.svc)+copyIcon:a.bridge_row?renderActions(a,root.dataset.svc,"restart"):copyIcon+renderActions(a,root.dataset.svc,"restart")+renderActions(a,root.dataset.svc,"stop")}</td>`;
     tb.appendChild(tr);
     (a.topics||[]).forEach(t=>tb.appendChild(renderTopic(t,a.topics_stale,6+columns.length)));
   });
@@ -737,9 +739,20 @@ def _agents_state(cfg: dict) -> list[dict]:
                 a['resume_cmd'] = ov['restart']
     agents = detect.pinned_agents(cfg.get("pinned_daemons", [])) + tmux
     from . import bridges
+    bridge_states = {spec['name']: (spec, state, note) for spec, state, note in bridges.states(cfg)
+                     if spec.get('name') and bridges.kind_of(spec) == 'a2tt'}
     for spec in bridges.master_specs(cfg):
-        # Topics of an a2tt bridge ride on the row of its master agent; read-only, no actions.
         master = next((a for a in agents if a.get("name") == spec["master"]), None)
+        state_info = bridge_states.get(spec.get('name'))
+        if master is None and state_info:
+            daemon, state, note = state_info
+            master = {'name': daemon['name'], 'kind': 'a2tt-bridge', 'label': daemon.get('label') or '—',
+                      'vendor': daemon.get('vendor') or 'other', 'alive': state == 'running',
+                      'status': state.capitalize(), 'status_detail': note, 'age': None,
+                      'actions': True, 'bridge_row': True}
+            if daemon.get('telegram'):
+                master['telegram_bot'], master['telegram_url'] = _tg_link(daemon['telegram'])
+            agents.append(master)
         found = bridges.topics(spec) if master else None
         if found:
             tmpdir = found.get('tmux_tmpdir') or '/tmp'
@@ -750,15 +763,37 @@ def _agents_state(cfg: dict) -> list[dict]:
                     topic['attach_command'] = _attach_command(socket, session)
             master["topics"] = master.get("topics", []) + found["items"]
             master["topics_stale"] = master.get("topics_stale", False) or found["stale"]
+    for name, (daemon, state, note) in bridge_states.items():
+        if daemon.get('master') or any(a.get('name') == name for a in agents):
+            continue
+        row = {'name': name, 'kind': 'a2tt-bridge', 'label': daemon.get('label') or '—',
+               'vendor': daemon.get('vendor') or 'other', 'alive': state == 'running',
+               'status': state.capitalize(), 'status_detail': note, 'age': None,
+               'actions': True, 'bridge_row': True}
+        if daemon.get('telegram'):
+            row['telegram_bot'], row['telegram_url'] = _tg_link(daemon['telegram'])
+        agents.append(row)
+        found = bridges.topics(daemon)
+        if found:
+            tmpdir = found.get('tmux_tmpdir') or '/tmp'
+            socket = str((Path(tmpdir).expanduser() / f'tmux-{os.getuid()}' / 'default').absolute())
+            for topic in found['items']:
+                session = topic.pop('_tmux_session', None)
+                if session and topic.get('alive'):
+                    topic['attach_command'] = _attach_command(socket, session)
+            row['topics'] = found['items']
+            row['topics_stale'] = found['stale']
     # Telegram deep-link icon. Two sources, explicit wins:
     #  1) an explicit `telegram` field on an agent/daemon config entry (for daemons with their OWN
     #     native bot, e.g. OpenClaw/Hermes) — value is a @username or a full t.me URL;
     #  2) auto: a tmux session bridged via Agent2Telegram (reads only the non-secret bot username).
     explicit = {d["name"]: d["telegram"] for d in
-                (cfg.get("pinned_daemons", []) + cfg.get("agents", []))
+                (cfg.get("pinned_daemons", []) + cfg.get("agents", []) + cfg.get("daemons", []))
                 if d.get("name") and d.get("telegram")}
     links = detect.telegram_links()
     for a in agents:
+        if a.get('bridge_row'):
+            continue
         if a.get('kind') != 'daemon':
             tmpdir = os.environ.get('TMUX_TMPDIR') or '/tmp'
             socket = str((Path(tmpdir).expanduser() / f'tmux-{os.getuid()}' / 'default').absolute())
@@ -817,6 +852,10 @@ def _agent_action(name: str, action: str) -> tuple[bool, str]:
     daemon = next((d for d in cfg.get("daemons", []) if d.get("name") == name), None)
     if not agent and not daemon:
         return False, f"unknown agent '{name}'"
+    configured_masters = {a.get('name') for a in cfg.get('agents', []) + cfg.get('pinned_daemons', [])}
+    if daemon and daemon.get('kind') == 'a2tt' and daemon.get('bridge_config') and action != 'restart' \
+            and daemon.get('master') not in configured_masters:
+        return False, 'a2tt bridge rows support restart only.'
     if daemon and not daemon.get('manager'):
         from . import managed, wizard
         owner = managed.discover(daemon)
@@ -1014,7 +1053,7 @@ def make_server(host: str, port: int, cfg: dict):
                     if not isinstance(ref,str): raise ValueError('unknown topic')
                     from . import bridges
                     cfg=config.load(); target=None; thread=None
-                    for spec in bridges.master_specs(cfg):
+                    for spec in bridges.topic_specs(cfg):
                         found=bridges.topics(spec)
                         for topic in (found or {}).get('items',[]):
                             if topic.get('close_ref') == ref: target=spec; thread=topic['thread']; break

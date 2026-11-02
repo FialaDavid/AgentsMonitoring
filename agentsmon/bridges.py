@@ -298,8 +298,13 @@ def topics(spec, now=None):
 
 def master_specs(cfg):
     """Enabled a2tt bridges that name the agent whose row should carry their topics."""
+    return [d for d in topic_specs(cfg) if d.get('master')]
+
+
+def topic_specs(cfg):
+    """Enabled a2tt bridges whose status files can supply topic rows."""
     return [d for d in cfg.get('daemons', []) if d.get('bridge_config') and d.get('enabled', True)
-            and kind_of(d) == 'a2tt' and d.get('master')]
+            and kind_of(d) == 'a2tt']
 
 
 def health(cfg):

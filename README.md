@@ -128,19 +128,20 @@ that file exists and its `updated_at` is older than three heartbeats plus 30 s, 
 alone decides.
 
 To show the topics of an a2tt bridge on the dashboard, name the agent whose row should carry
-them in `master` (an `agents[]` name; `status_file` is only needed if the layout differs):
+them in `master` (an `agents[]` name; without `master`, the bridge gets its own row). Optional
+`label` and `vendor` fields set that bridge row's model badge (`vendor` defaults to `other`):
 
 ```json
 {"daemons": [{"name": "Telegram Bridge: Bot (topics)", "kind": "a2tt", "master": "my-agent",
               "bridge_config": "/path/to/bots/Bot/config.json", "pattern": "…", "restart": "…"}]}
 ```
 
-Each topic is listed read-only under that agent: title (or `topic <id>`), agent kind, status
+Each topic is listed read-only under its master or bridge row: title (or `topic <id>`), agent kind, status
 (`live`, `parked`, `waiting`) with alive, busy or idle, time since last activity and last compaction,
 and context tokens with the percentage when the window is known. There are no buttons: topics are
 never restarted or stopped by Agents Monitoring. When the bridge stops updating its status file the
-topics are marked `stale`. A missing file shows nothing; an unknown `master` shows nothing and the
-bridge card says `master <name> not found`.
+topics are marked `stale`. A missing file shows no topics; an unknown `master` falls back to the
+bridge row, and the bridge card continues to report the missing master.
 
 Keep the dashboard on localhost by default. HTTP Basic Auth over unencrypted
 HTTP exposes credentials on the network; use an SSH tunnel or Tailscale HTTPS
