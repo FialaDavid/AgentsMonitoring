@@ -410,7 +410,7 @@ function renderColumns(root,columns){
   const table=q(root,"table"), head=q(root,"thead tr");
   head.querySelectorAll(".plugin-column").forEach(n=>n.remove());
   columns.forEach(c=>{const th=document.createElement("th");th.className="plugin-column text-left font-medium px-2 py-2";th.textContent=c.title;head.insertBefore(th,head.lastElementChild);});
-  const widths=[[170,""],[150,""],[230,"mobile-hide"],[97,"mobile-hide"],[140,""],...columns.map(()=>[100,""]),[65,""]];
+  const widths=[[170,""],[150,""],[230,"mobile-hide"],[97,"mobile-hide"],[140,""],...columns.map(()=>[100,""]),[88,""]];
   q(root,"colgroup").innerHTML=widths.map(([w,c])=>`<col class="${c}" style="width:${w}px">`).join('');
   table.style.minWidth=widths.reduce((a,[w])=>a+w,0)+"px";
 }
