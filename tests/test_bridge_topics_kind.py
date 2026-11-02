@@ -148,5 +148,18 @@ class Health(unittest.TestCase):
                 self.assertIsNone(bridges.health({'daemons': [topic]}))
 
 
+    def test_close_ref_and_command_reuse_bridge_python_and_environment(self):
+        with tempfile.TemporaryDirectory() as d:
+            sp = spec(d)
+            sp['restart'] = bridges.entry(sp['bridge_config'], PY, '/modules', kind='a2tt')['restart']
+            write_status(sp, lanes=[{'thread': 17, 'status': 'parked'}])
+            topic = bridges.topics(sp)['items'][0]
+            self.assertEqual(topic['close_ref'], bridges.close_ref(sp, 17))
+            self.assertNotIn('bridge_config', topic)
+            argv, env = bridges.close_command(sp, 17)
+            self.assertEqual(argv, [PY, '-m', 'agent2telegramtopic', 'close', '--config',
+                                    sp['bridge_config'], '--thread', '17'])
+            self.assertEqual(env['PYTHONPATH'], '/modules')
+
 if __name__ == '__main__':
     unittest.main()

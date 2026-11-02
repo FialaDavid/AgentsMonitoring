@@ -242,6 +242,29 @@ def _age(stamp, now):
     return max(0, int(now-stamp)) if type(stamp) in (int, float) else None
 
 
+def close_ref(spec, thread):
+    return hashlib.sha256(str(spec.get('bridge_config', '')).encode()).hexdigest()[:16]+':'+str(thread)
+
+
+def close_command(spec, thread):
+    """Build the close CLI invocation from the registered restart command."""
+    words = shlex.split(spec.get('restart', ''))
+    module = next((i for i in range(len(words)-2) if words[i:i+2] == ['-m', 'agent2telegramtopic']), None)
+    if module is None or module == 0:
+        raise ValueError('bridge command is unavailable')
+    env = os.environ.copy()
+    start = 1
+    if words[0] == 'nohup' and len(words) > 1 and words[1] == 'env':
+        start = 2
+    i = start
+    while i < module-1 and '=' in words[i] and not words[i].startswith('-'):
+        key, value = words[i].split('=', 1); env[key] = value; i += 1
+    python = words[module-1]
+    config_path = spec.get('bridge_config')
+    return [python, '-m', 'agent2telegramtopic', 'close', '--config', config_path,
+            '--thread', str(thread)], env
+
+
 def topics(spec, now=None):
     """Read-only view of the topics (lanes) an a2tt bridge reports, or None without a status file.
     Only display fields are kept; chat ids, paths and session names are dropped."""
@@ -259,7 +282,7 @@ def topics(spec, now=None):
         model = model[:40] if isinstance(model, str) else None
         model_vendor = 'claude' if isinstance(model, str) and model.startswith('claude-') else (
             'gpt' if isinstance(model, str) and model.startswith('gpt-') else None)
-        items.append({'thread':lane.get('thread'), '_tmux_session':lane.get('tmux_session'),
+        items.append({'thread':lane.get('thread'), 'close_ref':close_ref(spec, lane.get('thread')) if type(lane.get('thread')) is int and lane.get('status') != 'archived' else None, '_tmux_session':lane.get('tmux_session'),
                       'title':' '.join(title.split())[:80] if isinstance(title, str) else None,
                       'agent':str(lane.get('agent') or '')[:30],
                       'status':str(lane.get('status') or '')[:20],

@@ -98,7 +98,7 @@ PAGE = r"""<!DOCTYPE html><html lang="en"><head>
 <title>Agents Monitoring</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🤖</text></svg>">
 <script src="/static/tailwind.js"></script>
-<style>@media(max-width:640px){.agent-table .mobile-hide{display:none}.agent-table{min-width:0!important;width:100%!important}.agent-table col:nth-child(1){width:25%!important}.agent-table col:nth-child(2){width:25%!important}.agent-table col:nth-child(5){width:30%!important}.agent-table col:last-child{width:20%!important}}.bar{transition:opacity .15s ease}.bar:hover{opacity:.65}.usage-day-divider::before{content:"";position:absolute;left:-3px;top:-4px;bottom:-4px;width:1px;border-radius:1px;background:#94a3b8}.copied-flash{color:#059669!important;transition:color .1s}#toast{transition:opacity .2s ease}.agent-rows td{overflow:hidden}.sid{display:block;overflow:hidden;text-overflow:ellipsis}.topic-grid{display:grid;grid-template-columns:12rem 7rem 6rem 7rem 7rem 6rem 1.5rem 1.5rem;align-items:center;gap:.25rem .75rem}.topic-cell{min-width:0;overflow-wrap:anywhere}.topic-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.topic-state{display:inline-flex;align-items:center;gap:.375rem;white-space:nowrap}@media(max-width:600px){.topic-grid{width:calc(100vw - 3rem);grid-template-columns:repeat(2,minmax(0,1fr));gap:.25rem .5rem}}</style>
+<style>@media(max-width:640px){.agent-table .mobile-hide{display:none}.agent-table{min-width:0!important;width:100%!important}.agent-table col:nth-child(1){width:25%!important}.agent-table col:nth-child(2){width:25%!important}.agent-table col:nth-child(5){width:30%!important}.agent-table col:last-child{width:20%!important}}.bar{transition:opacity .15s ease}.bar:hover{opacity:.65}.usage-day-divider::before{content:"";position:absolute;left:-3px;top:-4px;bottom:-4px;width:1px;border-radius:1px;background:#94a3b8}.copied-flash{color:#059669!important;transition:color .1s}#toast{transition:opacity .2s ease}.agent-rows td{overflow:hidden}.sid{display:block;overflow:hidden;text-overflow:ellipsis}.topic-grid{display:grid;grid-template-columns:12rem 7rem 6rem 7rem 7rem 6rem 1.5rem 1.5rem 1.5rem;align-items:center;gap:.25rem .75rem}.topic-cell{min-width:0;overflow-wrap:anywhere}.topic-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.topic-state{display:inline-flex;align-items:center;gap:.375rem;white-space:nowrap}@media(max-width:600px){.topic-grid{width:calc(100vw - 3rem);grid-template-columns:repeat(2,minmax(0,1fr));gap:.25rem .5rem}}</style>
 </head><body class="bg-slate-50 text-slate-800 antialiased">
 <div id="toast" class="fixed left-1/2 bottom-5 -translate-x-1/2 bg-slate-800 text-white text-sm px-2 py-1.5 rounded-md shadow-lg opacity-0 pointer-events-none" style="z-index:50">&nbsp;</div>
 <div id="app" class="mx-auto px-5 py-6" style="max-width:1100px">
@@ -512,7 +512,8 @@ function renderTopic(t,stale,span){
     info(activityIcon,activityLabel,`last activity ${activity} ago`),info(contextIcon,ctx,`context ${ctx}`,contextClass),
     info(compactIcon,compactedLabel,`compacted ${compacted} ago`)];
   const copyIcon=t.attach_command?`<span class="topic-cell"><button class="inline-flex align-middle text-slate-500 hover:text-sky-600" data-copy="${esc(t.attach_command)}" title="Copy attach command" aria-label="Copy attach command"><svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></svg></button></span>`:"";
-  tr.innerHTML=`<td colspan="${span}" class="pl-8 pr-2 py-1 text-xs ${stale?"text-slate-400":"text-slate-500"}"><div class="topic-grid">${cells.join("")}${copyIcon}</div></td>`;
+  const closeIcon=t.close_ref?`<span class="topic-cell"><button class="inline-flex align-middle text-slate-500 hover:text-rose-600" data-close-ref="${esc(t.close_ref)}" data-close-title="${name}" title="Close topic (archive)" aria-label="Close topic (archive)"><svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M3 7h18v13H3zM2 4h20v3H2zM10 12h4"/></svg></button></span>`:"";
+  tr.innerHTML=`<td colspan="${span}" class="pl-8 pr-2 py-1 text-xs ${stale?"text-slate-400":"text-slate-500"}"><div class="topic-grid">${cells.join("")}${copyIcon}${closeIcon}</div></td>`;
   return tr;
 }
 // Collapsible blocks. The first OPEN_BY_DEFAULT blocks (agents table + the first service cards)
@@ -598,6 +599,8 @@ document.addEventListener("click", e=>{
   }).catch(()=>{ prompt("Copy this command into Terminal:",el.dataset.copy); });
 });
 // Restart / Stop buttons → POST /api/agent/action, then refresh. Stop asks for confirmation.
+document.addEventListener("click",async e=>{const btn=e.target.closest("[data-close-ref]");if(!btn)return;const title=btn.dataset.closeTitle;if(!confirm(`Close topic “${title}”? Same as /close in Telegram.`))return;try{const r=await fetch("/api/topic/close",{method:"POST",credentials:"same-origin",headers:{"Content-Type":"application/json","X-Agentsmon":"action"},body:JSON.stringify({ref:btn.dataset.closeRef})});const d=await r.json();showToast(d.message||d.error||"Close failed");if(d.ok)setTimeout(refresh,600)}catch(_){showToast("Close failed")}});
+
 document.addEventListener("click", async e=>{
   const btn=e.target.closest(".agent-act"); if(!btn) return;
   const name=btn.dataset.name, act=btn.dataset.act;
@@ -995,6 +998,29 @@ def make_server(host: str, port: int, cfg: dict):
                 return self._denied()
             from urllib.parse import urlparse, parse_qs
             parsed = urlparse(self.path)
+            if parsed.path == "/api/topic/close":
+                if not _action_allowed(self.headers):
+                    self.send_error(403); return
+                try:
+                    length=int(self.headers.get("Content-Length",0)); params=json.loads(self.rfile.read(length) or b"{}")
+                    ref=params.get('ref') if isinstance(params,dict) else None
+                    if not isinstance(ref,str): raise ValueError('unknown topic')
+                    from . import bridges
+                    cfg=config.load(); target=None; thread=None
+                    for spec in bridges.master_specs(cfg):
+                        found=bridges.topics(spec)
+                        for topic in (found or {}).get('items',[]):
+                            if topic.get('close_ref') == ref: target=spec; thread=topic['thread']; break
+                        if target: break
+                    if not target: raise ValueError('unknown topic')
+                    argv, env=bridges.close_command(target,thread)
+                    result=subprocess.run(argv,env=env,capture_output=True,text=True,timeout=15)
+                    output=(result.stdout or result.stderr).strip()
+                    message=output.splitlines()[0] if output else 'close command failed'
+                    body=json.dumps({'ok':result.returncode==0,'message':message}).encode(); status=200 if result.returncode==0 else 409
+                except Exception as exc:
+                    body=json.dumps({'ok':False,'message':str(exc)}).encode(); status=400 if isinstance(exc,ValueError) else 500
+                self.send_response(status); self.send_header('Content-Type','application/json'); self.send_header('Content-Length',str(len(body))); self.end_headers(); self.wfile.write(body); return
             if parsed.path != "/api/agent/action":
                 self.send_response(404)
                 self.end_headers()
