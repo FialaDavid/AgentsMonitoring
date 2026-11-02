@@ -1,8 +1,9 @@
-import json, tempfile, threading, time, unittest, urllib.error, urllib.request
+import json, os, tempfile, threading, time, unittest, urllib.error, urllib.request
 from pathlib import Path
 from unittest.mock import patch
 
 from agentsmon import dashboard
+from agentsmon import bridges
 
 
 class TopicRestartHTTP(unittest.TestCase):
@@ -59,6 +60,51 @@ class TopicRestartHTTP(unittest.TestCase):
             self.assertEqual(self.post('restart', ref, csrf=False)[0], 403)
             status, data = self.post('restart', ref)
             self.assertEqual((status, data), (409, {'ok':False, 'message':'Lane unavailable'}))
+
+    def test_service_manager_without_cli_reports_configuration_fix(self):
+        with self.assertRaisesRegex(ValueError, 'bridge CLI unknown: set "cli" for this bridge'):
+            bridges.close_command({'kind':'a2tt', 'bridge_config':'/tmp/config.json',
+                                   'restart':'launchctl kickstart -k gui/501/x'}, 17)
+
+    def test_cli_prefix_builds_close_and_restart_commands(self):
+        spec = {'kind':'a2tt', 'bridge_config':'/tmp/config.json',
+                'restart':'launchctl kickstart -k gui/501/x',
+                'cli':"env PYTHONPATH='/path with spaces' /usr/bin/python3 -m agent2telegramtopic"}
+        for subcommand in ('close', 'restart'):
+            argv, env = bridges.close_command(spec, 17, subcommand)
+            self.assertEqual(argv, ['/usr/bin/python3', '-m', 'agent2telegramtopic', subcommand,
+                                    '--config', '/tmp/config.json', '--thread', '17'])
+            expected_env = os.environ.copy()
+            expected_env['PYTHONPATH'] = '/path with spaces'
+            self.assertEqual(env, expected_env)
+        argv, _ = bridges.close_command({'bridge_config':'/tmp/config.json',
+                                         'cli':'/usr/bin/python3 -m agent2telegramtopic'}, 17)
+        self.assertEqual(argv, ['/usr/bin/python3', '-m', 'agent2telegramtopic', 'close',
+                                '--config', '/tmp/config.json', '--thread', '17'])
+
+    def test_legacy_restart_derived_command_is_unchanged(self):
+        argv, env = bridges.close_command({'bridge_config':'/tmp/config.json',
+                                           'restart':'nohup env PYTHONPATH=/source /venv/bin/python -m agent2telegramtopic run --config /tmp/config.json'}, 17)
+        self.assertEqual(argv, ['/venv/bin/python', '-m', 'agent2telegramtopic', 'close',
+                                '--config', '/tmp/config.json', '--thread', '17'])
+        self.assertEqual(env['PYTHONPATH'], '/source')
+
+    def test_close_and_restart_routes_run_explicit_cli(self):
+        from agentsmon.bridges import close_ref
+        self.spec.update(cli='env PATH=/bridge/bin /venv/bin/agent2telegramtopic',
+                         restart='launchctl kickstart -k gui/501/x')
+        expected = {
+            'close': ['/venv/bin/agent2telegramtopic', 'close', '--config', self.spec['bridge_config'], '--thread', '17'],
+            'restart': ['/venv/bin/agent2telegramtopic', 'restart', '--config', self.spec['bridge_config'], '--thread', '17'],
+        }
+        with patch.object(dashboard.config, 'load', return_value=self.cfg), \
+             patch.object(dashboard.subprocess, 'run', return_value=type('Result', (), {'returncode':0,'stdout':'ok','stderr':''})()) as run:
+            for route in ('close', 'restart'):
+                status, data = self.post(route, close_ref(self.spec, 17))
+                self.assertEqual((status, data), (200, {'ok':True, 'message':'ok'}))
+                args = run.call_args.args[0]
+                self.assertEqual(args, expected[route])
+                self.assertEqual(run.call_args.kwargs['env']['PATH'], '/bridge/bin')
 
 
 if __name__ == '__main__':

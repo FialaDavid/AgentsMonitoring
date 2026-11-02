@@ -129,11 +129,15 @@ alone decides.
 
 To show the topics of an a2tt bridge on the dashboard, name the agent whose row should carry
 them in `master` (an `agents[]` name; without `master`, the bridge gets its own row). Optional
-`label` and `vendor` fields set that bridge row's model badge (`vendor` defaults to `other`):
+`label` and `vendor` fields set that bridge row's model badge (`vendor` defaults to `other`).
+When a bridge is restarted by a service manager, add a shell-quoted `cli` command prefix to its
+daemon entry; topic close and restart actions use it when `restart` contains only the
+service-manager command. For example:
 
 ```json
 {"daemons": [{"name": "Telegram Bridge: Bot (topics)", "kind": "a2tt", "master": "my-agent",
-              "bridge_config": "/path/to/bots/Bot/config.json", "pattern": "…", "restart": "…"}]}
+              "bridge_config": "/path/to/bots/Bot/config.json", "pattern": "…", "restart": "…",
+              "cli": "env PYTHONPATH=/path/to/src /usr/bin/python3 -m agent2telegramtopic"}]}
 ```
 
 Each topic is listed read-only under its master or bridge row: title (or `topic <id>`), agent kind, status

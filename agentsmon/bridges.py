@@ -247,22 +247,29 @@ def close_ref(spec, thread):
 
 
 def close_command(spec, thread, subcommand='close'):
-    """Build a topic CLI invocation from the registered restart command."""
-    words = shlex.split(spec.get('restart', ''))
+    """Build a topic CLI invocation from an explicit CLI prefix or restart command."""
+    words = shlex.split(spec.get('cli', '')) if spec.get('cli') else shlex.split(spec.get('restart', ''))
+    explicit = bool(spec.get('cli'))
     module = next((i for i in range(len(words)-2) if words[i:i+2] == ['-m', 'agent2telegramtopic']), None)
+    has_module = module is not None
     if module is None or module == 0:
-        raise ValueError('bridge command is unavailable')
+        if not explicit:
+            raise ValueError('bridge CLI unknown: set "cli" for this bridge')
+        # An explicit CLI prefix may invoke the module through a console script.
+        module = len(words)
     env = os.environ.copy()
-    start = 1
-    if words[0] == 'nohup' and len(words) > 1 and words[1] == 'env':
-        start = 2
+    start = 0
+    if explicit and words and words[0] == 'env':
+        start = 1
+    elif not explicit:
+        start = 2 if words[0] == 'nohup' and len(words) > 1 and words[1] == 'env' else 1
     i = start
-    while i < module-1 and '=' in words[i] and not words[i].startswith('-'):
+    while i < module-(0 if explicit else 1) and '=' in words[i] and not words[i].startswith('-'):
         key, value = words[i].split('=', 1); env[key] = value; i += 1
-    python = words[module-1]
+    command = words[i:module+2] if explicit and has_module else (
+        words[i:] if explicit else words[module-1:module+2])
     config_path = spec.get('bridge_config')
-    return [python, '-m', 'agent2telegramtopic', subcommand, '--config', config_path,
-            '--thread', str(thread)], env
+    return command+[subcommand, '--config', config_path, '--thread', str(thread)], env
 
 
 def topics(spec, now=None):

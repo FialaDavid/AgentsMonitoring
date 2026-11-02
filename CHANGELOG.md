@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- a2tt bridge entries accept an optional `cli` prefix so topic close and restart work when a service manager owns the bridge.
 - Agents table names and the Agent header have a left inset matching the table's right inset.
 - a2tt topic model pills align with the agent model column.
 - Live a2tt topics can restart the topic session while resuming the same conversation.
