@@ -116,7 +116,7 @@ class Page(unittest.TestCase):
         body = dashboard.PAGE[dashboard.PAGE.index('function renderTopic'):]
         body = body[:body.index('// Collapsible blocks')]
         self.assertIn('<td class="pl-8 pr-2 py-1 text-xs', body)
-        self.assertIn('topic-name font-medium text-slate-600', body)
+        self.assertIn('topic-name block font-medium text-slate-600', body)
         self.assertIn('<td colspan="${span-1}" class="px-2 py-1 text-xs', body)
         self.assertIn('const cells=[model,', body)
         self.assertIn('title="${name}">${name}</span></td><td colspan="${span-1}"', body)
