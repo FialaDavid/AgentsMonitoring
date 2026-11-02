@@ -228,6 +228,13 @@ def _count(value):
     return value if type(value) is int and value >= 0 else None
 
 
+def _model_label(value):
+    if not isinstance(value, str) or not value:
+        return '—'
+    match = re.fullmatch(r'claude-([a-z]+)-(\d+)-(\d+)(?:-.*)?', value)
+    return match.group(1)[0].upper()+match.group(2)+'.'+match.group(3) if match else value
+
+
 def _age(stamp, now):
     return max(0, int(now-stamp)) if type(stamp) in (int, float) else None
 
@@ -245,6 +252,8 @@ def topics(spec, now=None):
             continue
         used, window = _count(lane.get('ctx_tokens')), _count(lane.get('ctx_window'))
         title = lane.get('title')
+        model = lane.get('model')
+        model = model[:40] if isinstance(model, str) else None
         items.append({'thread':lane.get('thread'),
                       'title':' '.join(title.split())[:80] if isinstance(title, str) else None,
                       'agent':str(lane.get('agent') or '')[:30],
@@ -253,6 +262,7 @@ def topics(spec, now=None):
                       'last_activity_age':_age(lane.get('last_activity'), now),
                       'last_compact_age':_age(lane.get('last_compact'), now),
                       'ctx_tokens':used, 'ctx_window':window,
+                      'model':model, 'model_label':_model_label(model),
                       'ctx_percent':round(100*used/window, 1) if used is not None and window else None})
     return {'items':items, 'stale':stale_seconds(data, now) is not None}
 

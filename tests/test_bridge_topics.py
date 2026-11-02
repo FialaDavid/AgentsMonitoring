@@ -7,7 +7,8 @@ from agentsmon import bridges, dashboard, detect
 
 LANE = {'chat': -100123, 'thread': 7, 'title': 'docs', 'agent': 'claude', 'cwd': '/secret/place',
         'tmux_session': 'T 7', 'alive': True, 'status': 'live', 'busy': True,
-        'last_activity': None, 'last_compact': None, 'ctx_tokens': 50000, 'ctx_window': 200000}
+        'last_activity': None, 'last_compact': None, 'ctx_tokens': 50000, 'ctx_window': 200000,
+        'model': 'claude-opus-5-5'}
 
 
 def bridge(root, master='Boss', **extra):
@@ -47,6 +48,7 @@ class Server(unittest.TestCase):
         self.assertIn(t['last_activity_age'], (120, 121))
         self.assertIsNone(t['last_compact_age'])
         self.assertEqual((t['ctx_tokens'], t['ctx_percent']), (50000, 25.0))
+        self.assertEqual((t['model'], t['model_label']), ('claude-opus-5-5', 'O5.5'))
         shown = json.dumps(boss['topics'])
         for private in ('secret', '-100123', 'T 7'):
             self.assertNotIn(private, shown)
@@ -54,6 +56,19 @@ class Server(unittest.TestCase):
     def test_percent_needs_both_context_values(self):
         write_status(self.sp, [{**LANE, 'ctx_window': None}, {**LANE, 'ctx_tokens': None}])
         self.assertEqual([t['ctx_percent'] for t in agents_for(self.cfg)['Boss']['topics']], [None, None])
+
+    def test_model_is_truncated_and_labeled(self):
+        write_status(self.sp, [{**LANE, 'model': 'x' * 50}, {**LANE, 'model': None}])
+        topics = agents_for(self.cfg)['Boss']['topics']
+        self.assertEqual(topics[0]['model'], 'x' * 40)
+        self.assertEqual(topics[0]['model_label'], 'x' * 40)
+        self.assertEqual((topics[1]['model'], topics[1]['model_label']), (None, '—'))
+
+    def test_claude_model_labels_and_other_ids(self):
+        cases = {'claude-sonnet-5-5': 'S5.5', 'claude-haiku-5-5': 'H5.5',
+                 'claude-fable-5-1': 'F5.1', 'claude-opus-6-2-extra': 'O6.2',
+                 'gpt-6-luna': 'gpt-6-luna'}
+        self.assertEqual({model: bridges._model_label(model) for model in cases}, cases)
 
     def test_hung_bridge_marks_topics_stale(self):
         write_status(self.sp, [LANE], age=500)
