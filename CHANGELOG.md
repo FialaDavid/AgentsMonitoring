@@ -163,4 +163,6 @@
   data is visibly unknown; no invented quotas. This is a reviewed adaptation, not a merge of
   the original PR's networking implementation.
 
+- Topic rows show vendor model pills and compact activity, context, and compaction icons.
+
 See [community review](docs/COMMUNITY-REVIEW.md) for other fork findings and scope decisions.

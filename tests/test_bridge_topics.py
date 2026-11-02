@@ -48,7 +48,7 @@ class Server(unittest.TestCase):
         self.assertIn(t['last_activity_age'], (120, 121))
         self.assertIsNone(t['last_compact_age'])
         self.assertEqual((t['ctx_tokens'], t['ctx_percent']), (50000, 25.0))
-        self.assertEqual((t['model'], t['model_label']), ('claude-opus-5-5', 'O5.5'))
+        self.assertEqual((t['model'], t['model_label'], t['model_vendor']), ('claude-opus-5-5', 'Op 5.5', 'claude'))
         shown = json.dumps(boss['topics'])
         for private in ('secret', '-100123'):
             self.assertNotIn(private, shown)
@@ -63,13 +63,21 @@ class Server(unittest.TestCase):
         topics = agents_for(self.cfg)['Boss']['topics']
         self.assertEqual(topics[0]['model'], 'x' * 40)
         self.assertEqual(topics[0]['model_label'], 'x' * 40)
-        self.assertEqual((topics[1]['model'], topics[1]['model_label']), (None, '—'))
+        self.assertEqual((topics[1]['model'], topics[1]['model_label'], topics[1]['model_vendor']), (None, '—', None))
 
-    def test_claude_model_labels_and_other_ids(self):
-        cases = {'claude-sonnet-5-5': 'S5.5', 'claude-haiku-5-5': 'H5.5',
-                 'claude-fable-5-1': 'F5.1', 'claude-opus-6-2-extra': 'O6.2',
-                 'gpt-6-luna': 'gpt-6-luna'}
+    def test_model_labels_and_other_ids(self):
+        cases = {'claude-opus-5-5': 'Op 5.5', 'claude-sonnet-4-8': 'So 4.8',
+                 'claude-haiku-5-5': 'Ha 5.5', 'claude-fable-5-1': 'Fa 5.1',
+                 'claude-opus-6-2-extra': 'Op 6.2', 'gpt-6-sol': '6 Sol',
+                 'gpt-6-terra': '6 Terra', 'gpt-6-luna': '6 Luna',
+                 'gpt-5.6-sol': '5.6 Sol', 'other-id': 'other-id', '': '—'}
         self.assertEqual({model: bridges._model_label(model) for model in cases}, cases)
+        self.assertEqual(bridges._model_label(None), '—')
+        write_status(self.sp, [{**LANE, 'model': 'claude-opus-5-5'},
+                               {**LANE, 'model': 'gpt-6-sol'},
+                               {**LANE, 'model': 'other-id'}, {**LANE, 'model': None}])
+        topics = agents_for(self.cfg)['Boss']['topics']
+        self.assertEqual([t['model_vendor'] for t in topics], ['claude', 'gpt', None, None])
 
     def test_hung_bridge_marks_topics_stale(self):
         write_status(self.sp, [LANE], age=500)

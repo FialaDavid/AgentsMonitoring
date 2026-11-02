@@ -98,7 +98,7 @@ PAGE = r"""<!DOCTYPE html><html lang="en"><head>
 <title>Agents Monitoring</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🤖</text></svg>">
 <script src="/static/tailwind.js"></script>
-<style>@media(max-width:640px){.agent-table .mobile-hide{display:none}.agent-table{min-width:0!important;width:100%!important}.agent-table col:nth-child(1){width:25%!important}.agent-table col:nth-child(2){width:25%!important}.agent-table col:nth-child(5){width:30%!important}.agent-table col:last-child{width:20%!important}}.bar{transition:opacity .15s ease}.bar:hover{opacity:.65}.usage-day-divider::before{content:"";position:absolute;left:-3px;top:-4px;bottom:-4px;width:1px;border-radius:1px;background:#94a3b8}.copied-flash{color:#059669!important;transition:color .1s}#toast{transition:opacity .2s ease}.agent-rows td{overflow:hidden}.sid{display:block;overflow:hidden;text-overflow:ellipsis}.topic-grid{display:grid;grid-template-columns:12rem 6rem 9.5rem 9rem 10rem 4rem 1.5rem 1.5rem;align-items:center;gap:.25rem .75rem}.topic-cell{min-width:0;overflow-wrap:anywhere}.topic-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.topic-state{display:inline-flex;align-items:center;gap:.375rem;white-space:nowrap}@media(max-width:600px){.topic-grid{width:calc(100vw - 3rem);grid-template-columns:repeat(2,minmax(0,1fr));gap:.25rem .5rem}}</style>
+<style>@media(max-width:640px){.agent-table .mobile-hide{display:none}.agent-table{min-width:0!important;width:100%!important}.agent-table col:nth-child(1){width:25%!important}.agent-table col:nth-child(2){width:25%!important}.agent-table col:nth-child(5){width:30%!important}.agent-table col:last-child{width:20%!important}}.bar{transition:opacity .15s ease}.bar:hover{opacity:.65}.usage-day-divider::before{content:"";position:absolute;left:-3px;top:-4px;bottom:-4px;width:1px;border-radius:1px;background:#94a3b8}.copied-flash{color:#059669!important;transition:color .1s}#toast{transition:opacity .2s ease}.agent-rows td{overflow:hidden}.sid{display:block;overflow:hidden;text-overflow:ellipsis}.topic-grid{display:grid;grid-template-columns:12rem 7rem 6rem 7rem 7rem 6rem 1.5rem 1.5rem;align-items:center;gap:.25rem .75rem}.topic-cell{min-width:0;overflow-wrap:anywhere}.topic-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.topic-state{display:inline-flex;align-items:center;gap:.375rem;white-space:nowrap}@media(max-width:600px){.topic-grid{width:calc(100vw - 3rem);grid-template-columns:repeat(2,minmax(0,1fr));gap:.25rem .5rem}}</style>
 </head><body class="bg-slate-50 text-slate-800 antialiased">
 <div id="toast" class="fixed left-1/2 bottom-5 -translate-x-1/2 bg-slate-800 text-white text-sm px-2 py-1.5 rounded-md shadow-lg opacity-0 pointer-events-none" style="z-index:50">&nbsp;</div>
 <div id="app" class="mx-auto px-5 py-6" style="max-width:1100px">
@@ -491,18 +491,26 @@ function renderAgents(root, agents, summary=null, columns=[]){
 // Read-only sub-row for one topic of a bridge, shown under its master agent.
 function renderTopic(t,stale,span){
   const tr=document.createElement("tr"); tr.className="border-b border-slate-100 last:border-0 topic-row";
-  const ago=(label,s)=>s==null?"":`${label} ${fmtDuration(s)} ago`;
+  const age=s=>s==null?"":fmtDuration(s);
   const k=n=>n<1000?String(n):Math.round(n/1000)+"k";
-  const ctx=t.ctx_tokens?`context ${k(t.ctx_tokens)}${t.ctx_percent!=null?" · "+fmtPct(t.ctx_percent):""}`:"";
+  const ctx=t.ctx_tokens?`${k(t.ctx_tokens)}${t.ctx_percent!=null?" · "+fmtPct(t.ctx_percent):""}`:"";
   const run=t.status==="live"?(t.alive?(t.busy?["bg-sky-500","active","text-sky-600"]:["bg-emerald-500","idle","text-emerald-600"]):["bg-rose-500","not running","text-rose-600"]):
     t.status==="parked"?["bg-slate-300","parked","text-slate-500"]:t.status==="waiting"?["bg-amber-500","waiting","text-amber-600"]:["bg-slate-300",t.status||"?","text-slate-500"];
   const state=`<span class="topic-state ${stale?"text-slate-400":run[2]}"${stale?' title="bridge status stale"':""}><span class="h-2 w-2 rounded-full ${stale?"bg-slate-300":run[0]} shrink-0"></span>${esc(run[1])}</span>`;
   const name=esc(t.title||"topic "+t.thread);
   const contextClass=t.ctx_percent!=null&&t.ctx_percent>=80?"text-amber-600":"";
-  const model=`<span class="topic-cell font-mono" title="${esc(t.model||'')}">${esc(t.model_label||"—")}</span>`;
+  const vendorCls=t.model_vendor==="claude"?"bg-amber-100 text-amber-800":t.model_vendor==="gpt"?"bg-emerald-100 text-emerald-800":"bg-slate-100 text-slate-700";
+  const model=t.model?`<span class="topic-cell" title="${esc(t.model)}"><span class="inline-block rounded px-1.5 py-0.5 text-[11px] font-medium ${vendorCls}">${esc(t.model_label||"—")}</span></span>`:`<span class="topic-cell">—</span>`;
+  const activity=age(t.last_activity_age); const compacted=age(t.last_compact_age);
+  const activityLabel=activity?activity+" ago":""; const compactedLabel=compacted?compacted+" ago":"";
+  const activityIcon='<svg viewBox="0 0 24 24" class="h-3.5 w-3.5 shrink-0" stroke="currentColor" stroke-width="2" fill="none"><polyline points="2 12 7 12 10 6 14 18 17 12 22 12"/></svg>';
+  const contextIcon='<svg viewBox="0 0 24 24" class="h-3.5 w-3.5 shrink-0" stroke="currentColor" stroke-width="2" fill="none"><path d="M12 5a4 4 0 0 0-7 3 4 4 0 0 0 0 7 4 4 0 0 0 7 3m0-13a4 4 0 0 1 7 3 4 4 0 0 1 0 7 4 4 0 0 1-7 3M12 5v14"/></svg>';
+  const compactIcon='<svg viewBox="0 0 24 24" class="h-3.5 w-3.5 shrink-0" stroke="currentColor" stroke-width="2" fill="none"><path d="M3 8h7m-3-3 3 3-3 3M21 16h-7m3-3-3 3 3 3M12 5v14"/></svg>';
+  const info=(icon,value,tip,cls="")=>value?`<span class="topic-cell inline-flex items-center gap-1 ${cls}" title="${esc(tip)}">${icon}${esc(value)}</span>`:`<span class="topic-cell"></span>`;
   const cells=[`<span class="topic-cell topic-name font-medium text-slate-600" title="${name}">${name}</span>`,
-    `<span class="topic-cell">${state}</span>`,`<span class="topic-cell">${ago("last activity",t.last_activity_age)}</span>`,
-    `<span class="topic-cell ${contextClass}">${ctx}</span>`,`<span class="topic-cell">${ago("compacted",t.last_compact_age)}</span>`,model];
+    `<span class="topic-cell">${state}</span>`,model,
+    info(activityIcon,activityLabel,`last activity ${activity} ago`),info(contextIcon,ctx,`context ${ctx}`,contextClass),
+    info(compactIcon,compactedLabel,`compacted ${compacted} ago`)];
   const copyIcon=t.attach_command?`<span class="topic-cell"><button class="inline-flex align-middle text-slate-500 hover:text-sky-600" data-copy="${esc(t.attach_command)}" title="Copy attach command" aria-label="Copy attach command"><svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></svg></button></span>`:"";
   tr.innerHTML=`<td colspan="${span}" class="pl-8 pr-2 py-1 text-xs ${stale?"text-slate-400":"text-slate-500"}"><div class="topic-grid">${cells.join("")}${copyIcon}</div></td>`;
   return tr;
