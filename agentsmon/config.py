@@ -43,6 +43,11 @@ DEFAULTS = {
     "dashboard": {"host": "127.0.0.1", "port": 8765, "poll_seconds": 15},
     "probe": {"interval_seconds": 60, "sla_window_days": 90, "timeline_days": 90, "min_outage_samples": 3},
     "keepalive": {"enabled": True, "interval_seconds": 60},
+    # Time-triggered launchd and Hermes jobs; notifications are an argv command plus one message argument.
+    "scheduled_jobs": {"enabled": False, "interval_seconds": 60, "grace_seconds": 900,
+                       "sources": ["launchd", "hermes"], "ignore": [],
+                       "launchd_dir": "~/Library/LaunchAgents", "hermes_cron_dir": "~/.hermes/cron",
+                       "notify_command": []},
 }
 
 

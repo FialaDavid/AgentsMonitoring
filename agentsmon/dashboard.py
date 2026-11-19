@@ -98,12 +98,23 @@ PAGE = r"""<!DOCTYPE html><html lang="en"><head>
 <title>Agents Monitoring</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🤖</text></svg>">
 <script src="/static/tailwind.js"></script>
-<style>@media(max-width:640px){.agent-table .mobile-hide{display:none}.agent-table{min-width:0!important;width:100%!important}.agent-table col:nth-child(1){width:25%!important}.agent-table col:nth-child(2){width:25%!important}.agent-table col:nth-child(5){width:30%!important}.agent-table col:last-child{width:20%!important}}.bar{transition:opacity .15s ease}.bar:hover{opacity:.65}.usage-day-divider::before{content:"";position:absolute;left:-3px;top:-4px;bottom:-4px;width:1px;border-radius:1px;background:#94a3b8}.copied-flash{color:#059669!important;transition:color .1s}#toast{transition:opacity .2s ease}.agent-rows td{overflow:hidden}.sid{display:block;overflow:hidden;text-overflow:ellipsis}.topic-grid{display:grid;grid-template-columns:minmax(4rem,.8fr) minmax(5.5rem,1fr) minmax(5rem,1fr) minmax(5rem,1fr) minmax(5rem,1fr) auto;align-items:center;width:100%;gap:0}.topic-cell{min-width:0;overflow-wrap:anywhere}.topic-actions{min-width:0;display:flex;justify-content:flex-end}.topic-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.topic-state{display:inline-flex;align-items:center;gap:.375rem;white-space:nowrap}@media(max-width:600px){.topic-grid{width:100%;grid-template-columns:repeat(2,minmax(0,1fr));gap:.25rem .5rem}.topic-actions{grid-column:1/-1}}</style>
+<style>.scheduled-table{table-layout:fixed;min-width:680px}@media(max-width:640px){.agent-table .mobile-hide{display:none}.agent-table{min-width:0!important;width:100%!important}.agent-table col:nth-child(1){width:25%!important}.agent-table col:nth-child(2){width:25%!important}.agent-table col:nth-child(5){width:30%!important}.agent-table col:last-child{width:20%!important}}.bar{transition:opacity .15s ease}.bar:hover{opacity:.65}.usage-day-divider::before{content:"";position:absolute;left:-3px;top:-4px;bottom:-4px;width:1px;border-radius:1px;background:#94a3b8}.copied-flash{color:#059669!important;transition:color .1s}#toast{transition:opacity .2s ease}.agent-rows td{overflow:hidden}.sid{display:block;overflow:hidden;text-overflow:ellipsis}.topic-grid{display:grid;grid-template-columns:minmax(4rem,.8fr) minmax(5.5rem,1fr) minmax(5rem,1fr) minmax(5rem,1fr) minmax(5rem,1fr) auto;align-items:center;width:100%;gap:0}.topic-cell{min-width:0;overflow-wrap:anywhere}.topic-actions{min-width:0;display:flex;justify-content:flex-end}.topic-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.topic-state{display:inline-flex;align-items:center;gap:.375rem;white-space:nowrap}@media(max-width:600px){.topic-grid{width:100%;grid-template-columns:repeat(2,minmax(0,1fr));gap:.25rem .5rem}.topic-actions{grid-column:1/-1}}</style>
 </head><body class="bg-slate-50 text-slate-800 antialiased">
 <div id="toast" class="fixed left-1/2 bottom-5 -translate-x-1/2 bg-slate-800 text-white text-sm px-2 py-1.5 rounded-md shadow-lg opacity-0 pointer-events-none" style="z-index:50">&nbsp;</div>
 <div id="app" class="mx-auto px-5 py-6" style="max-width:1100px">
 AGENT_TABLES
   <div id="services"></div>
+  <section id="scheduled-jobs" class="mb-6" hidden>
+    <h2 class="text-base font-semibold mb-3">Scheduled jobs</h2>
+    <div class="rounded-lg border border-slate-200 bg-white overflow-x-auto">
+      <table class="w-full text-sm scheduled-table"><thead>
+        <tr class="text-[11px] uppercase tracking-wide text-slate-400 border-b border-slate-100">
+          <th class="text-left font-medium px-3 py-2">Job</th><th class="text-left font-medium px-2 py-2">Source</th>
+          <th class="text-left font-medium px-2 py-2">Schedule</th><th class="text-left font-medium px-2 py-2">Last run</th>
+          <th class="text-left font-medium px-2 py-2">State</th>
+        </tr></thead><tbody id="scheduled-job-rows"></tbody></table>
+    </div>
+  </section>
   <p class="text-center text-[11px] text-slate-300" id="footer">auto-refresh</p>
 </div>
 
@@ -581,6 +592,22 @@ async function refresh(){
     }
     const sections=box.querySelectorAll("section");
     d.services.forEach((s,i)=>{ const root=sections[i]; q(root,".svc-name").textContent=s.name; renderService(root,s); initCollapse(root,s.name,i+1+(d.agent_tables||[]).length); });
+    const scheduled=document.getElementById("scheduled-jobs");
+    scheduled.hidden=!d.scheduled_jobs;
+    if(d.scheduled_jobs){
+      const rank={failed:0,missed:1,unknown:2,unloaded:2,ok:3};
+      const rows=[...(d.scheduled_jobs.jobs||[])].sort((a,b)=>(rank[a.state]??2)-(rank[b.state]??2));
+      const body=document.getElementById("scheduled-job-rows"); body.replaceChildren();
+      rows.forEach(job=>{
+        const tr=document.createElement("tr"); tr.className="border-b border-slate-100 last:border-0";
+        [job.id,job.source,job.schedule,job.last_run_at?new Date(job.last_run_at).toLocaleString()+" (approx.)":"–",job.state].forEach((value,i)=>{
+          const td=document.createElement("td"); td.className="px-2 py-2"+(i===0?" pl-3":""); td.textContent=value||"–";
+          if(i===0 && job.last_run_at) td.title="Last run time is approximate to the sampling interval";
+          if(i===4 && job.detail) td.title=job.detail;
+          tr.appendChild(td);
+        }); body.appendChild(tr);
+      });
+    }
     document.getElementById("footer").textContent="updated "+new Date().toLocaleTimeString()+` · core v${d.core.version} (${d.core.state})`;
   }catch(e){document.getElementById("footer").textContent="connection lost…";}
 }
@@ -942,8 +969,18 @@ def _state() -> bytes:
     data = {"time": int(time.time()), "agents": agents, "agent_tables": extra['tables'],
             "usage_view": usage_view, "columns": columns, "plugin_errors": extra['errors'], "plugins": extra['plugins'],
             "plugin_loading": extra.get('loading', False),
-            "core": core_status(), "services": services}
+            "core": core_status(), "services": services,
+            "scheduled_jobs": _scheduled_jobs_state(cfg)}
     return json.dumps(data).encode()
+
+
+def _scheduled_jobs_state(cfg):
+    if not cfg.get("scheduled_jobs", {}).get("enabled"):
+        return None
+    try:
+        return json.loads((config.state_dir() / "scheduled_jobs.json").read_text("utf-8"))
+    except (OSError, ValueError):
+        return None
 
 
 def _probe_loop(stop: threading.Event) -> None:
@@ -953,6 +990,17 @@ def _probe_loop(stop: threading.Event) -> None:
         except Exception:
             pass
         stop.wait(int(config.load().get("probe", {}).get("interval_seconds", 60)))
+
+
+def _scheduled_jobs_loop(stop: threading.Event, cfg: dict) -> None:
+    from . import scheduled_jobs
+    interval = int(cfg.get("scheduled_jobs", {}).get("interval_seconds", 60))
+    while not stop.is_set():
+        try:
+            scheduled_jobs.tick(cfg)
+        except Exception:
+            pass
+        stop.wait(interval)
 
 
 _STATIC_TAILWIND = (Path(__file__).parent / "static" / "tailwind.js").read_bytes()
@@ -991,6 +1039,8 @@ def serve(host: str, port: int) -> None:
     print(f"Agents Monitoring dashboard → http://{host}:{port}  (Ctrl-C to stop)")
     if cfg.get("services"):
         threading.Thread(target=_probe_loop, args=(threading.Event(),), daemon=True).start()
+    if cfg.get("scheduled_jobs", {}).get("enabled"):
+        threading.Thread(target=_scheduled_jobs_loop, args=(threading.Event(), cfg), daemon=True).start()
     write_pidfile()
     server.serve_forever()
 

@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Added opt-in Scheduled jobs monitoring for launchd calendar/interval jobs and Hermes cron jobs, with dashboard state and batched state-change notifications.
 - a2tt bridge entries accept an optional `cli` prefix so topic close and restart work when a service manager owns the bridge.
 - Agents table names and the Agent header have a left inset matching the table's right inset.
 - a2tt topic model pills align with the agent model column.
