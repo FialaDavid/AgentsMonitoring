@@ -53,7 +53,7 @@ tmux sessions  ⇄  Agents Monitoring  ⇄  status page + keepalive
 
 ### Scheduled jobs
 
-The opt-in `scheduled_jobs` feature watches calendar/interval launchd jobs and scheduled Hermes cron jobs. Configure `scheduled_jobs.enabled`, `interval_seconds`, `grace_seconds`, `sources`, `ignore`, `launchd_dir`, `hermes_cron_dir`, and `notify_command` in `~/.config/agentsmon/config.json`. `ignore` contains `fnmatch` patterns for job labels/names. `notify_command` is an argv list; AgentsMon appends the complete plain-text notification as one final argument. An empty list disables notifications. Launchd last-run times are approximate to the sampling interval, and there is no history from before the feature is enabled. KeepAlive launchd daemons are excluded on purpose.
+The opt-in `scheduled_jobs` feature watches calendar/interval launchd jobs and scheduled Hermes cron jobs. FAILED notifications are sent after a failure has lasted `grace_seconds`. Configure `scheduled_jobs.enabled`, `interval_seconds`, `grace_seconds`, `sources`, `ignore`, `launchd_dir`, `hermes_cron_dir`, and `notify_command` in `~/.config/agentsmon/config.json`. `ignore` contains `fnmatch` patterns for job labels/names. `notify_command` is an argv list; AgentsMon appends the complete plain-text notification as one final argument. An empty list disables notifications. Launchd last-run times are approximate to the sampling interval, and there is no history from before the feature is enabled. KeepAlive launchd daemons are excluded on purpose.
 
 ### Safe conversation ownership (0.3.3)
 

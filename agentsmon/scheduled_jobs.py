@@ -19,6 +19,7 @@ def _connect(path: Path) -> sqlite3.Connection:
     con.execute("CREATE TABLE IF NOT EXISTS samples (job_id TEXT, ts REAL, runs INTEGER, last_exit INTEGER)")
     con.execute("CREATE INDEX IF NOT EXISTS samples_job_ts ON samples(job_id, ts)")
     con.execute("CREATE TABLE IF NOT EXISTS notified (job_id TEXT PRIMARY KEY, state TEXT)")
+    con.execute("CREATE TABLE IF NOT EXISTS failing (job_id TEXT PRIMARY KEY, since REAL)")
     return con
 
 
@@ -232,10 +233,18 @@ def tick(cfg, now=None):
         transitions = []
         for job in jobs:
             key = job["source"] + ":" + job["id"]
+            state = job["state"]
+            if state == "failed":
+                con.execute("INSERT OR IGNORE INTO failing VALUES (?,?)", (key, current.timestamp()))
+            else:
+                con.execute("DELETE FROM failing WHERE job_id=?", (key,))
             previous = con.execute("SELECT state FROM notified WHERE job_id=?", (key,)).fetchone()
             prior_state = previous[0] if previous else None
-            state = job["state"]
-            if state in ("failed", "missed") and state != prior_state:
+            failure = con.execute("SELECT since FROM failing WHERE job_id=?", (key,)).fetchone()
+            grace = int(settings.get("grace_seconds", 900))
+            if state == "failed" and failure and current.timestamp() - failure[0] >= grace and state != prior_state:
+                transitions.append((key, state, "%s  %s  %s" % (state.upper(), key, job["detail"])))
+            elif state == "missed" and state != prior_state:
                 transitions.append((key, state, "%s  %s  %s" % (state.upper(), key, job["detail"])))
             elif state == "ok" and prior_state in ("failed", "missed"):
                 transitions.append((key, "ok", "RECOVERED  %s  recovered" % key))

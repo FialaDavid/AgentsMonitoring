@@ -131,11 +131,11 @@ class ScheduledJobs(unittest.TestCase):
         self.cfg["launchctl_runner"] = self.runner(0, 2)
         with patch.object(scheduled_jobs.subprocess, "run", side_effect=notify):
             self.tick(self.now, exit_code=2)
-            self.tick(self.now + dt.timedelta(minutes=1), exit_code=2)
+            self.tick(self.now + dt.timedelta(minutes=15), exit_code=2)
             self.assertEqual(len(calls), 1)
             self.assertEqual(calls[0].count("FAILED"), 2)
             self.cfg["launchctl_runner"] = self.runner(1, 0)
-            self.tick(self.now + dt.timedelta(minutes=2))
+            self.tick(self.now + dt.timedelta(minutes=16))
             self.assertEqual(len(calls), 2)
             self.assertIn("RECOVERED", calls[-1])
 
@@ -147,8 +147,43 @@ class ScheduledJobs(unittest.TestCase):
             attempts.append(argv[-1]); return SimpleNamespace(returncode=1 if len(attempts) == 1 else 0)
         with patch.object(scheduled_jobs.subprocess, "run", side_effect=fail_then_succeed):
             self.tick(self.now, exit_code=4)
-            self.tick(self.now + dt.timedelta(minutes=1), exit_code=4)
+            self.tick(self.now + dt.timedelta(minutes=15), exit_code=4)
+            self.tick(self.now + dt.timedelta(minutes=16), exit_code=4)
         self.assertEqual(len(attempts), 2)
+
+    def test_failure_recovering_before_grace_sends_nothing(self):
+        self.plist("one", StartInterval=60)
+        self.cfg["scheduled_jobs"]["sources"] = ["launchd"]
+        self.cfg["scheduled_jobs"]["notify_command"] = ["notify"]
+        calls = []
+        def notify(argv, **kwargs):
+            from types import SimpleNamespace
+            calls.append(argv[-1])
+            return SimpleNamespace(returncode=0)
+        with patch.object(scheduled_jobs.subprocess, "run", side_effect=notify):
+            result = self.tick(self.now, exit_code=2)
+            self.assertEqual(result["jobs"][0]["state"], "failed")
+            self.tick(self.now + dt.timedelta(minutes=5), exit_code=2)
+            self.tick(self.now + dt.timedelta(minutes=6), runs=1, exit_code=0)
+        self.assertEqual(calls, [])
+
+    def test_failure_persisting_through_grace_notifies_then_recovers(self):
+        self.plist("one", StartInterval=60)
+        self.cfg["scheduled_jobs"]["sources"] = ["launchd"]
+        self.cfg["scheduled_jobs"]["notify_command"] = ["notify"]
+        calls = []
+        def notify(argv, **kwargs):
+            from types import SimpleNamespace
+            calls.append(argv[-1])
+            return SimpleNamespace(returncode=0)
+        with patch.object(scheduled_jobs.subprocess, "run", side_effect=notify):
+            self.tick(self.now, exit_code=2)
+            self.tick(self.now + dt.timedelta(minutes=15), exit_code=2)
+            self.assertEqual(len(calls), 1)
+            self.assertIn("FAILED", calls[0])
+            self.tick(self.now + dt.timedelta(minutes=16), runs=1, exit_code=0)
+        self.assertEqual(len(calls), 2)
+        self.assertIn("RECOVERED", calls[1])
 
     def test_disabled_dashboard_state_is_none(self):
         from agentsmon import dashboard
