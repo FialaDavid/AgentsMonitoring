@@ -55,6 +55,23 @@ tmux sessions  ⇄  Agents Monitoring  ⇄  status page + keepalive
 
 The opt-in `scheduled_jobs` feature watches calendar/interval launchd jobs and scheduled Hermes cron jobs. FAILED notifications are sent after a failure has lasted `grace_seconds`. Configure `scheduled_jobs.enabled`, `interval_seconds`, `grace_seconds`, `sources`, `ignore`, `launchd_dir`, `hermes_cron_dir`, and `notify_command` in `~/.config/agentsmon/config.json`. `ignore` contains `fnmatch` patterns for job labels/names. `notify_command` is an argv list; AgentsMon appends the complete plain-text notification as one final argument. An empty list disables notifications. Launchd last-run times are approximate to the sampling interval, and there is no history from before the feature is enabled. KeepAlive launchd daemons are excluded on purpose.
 
+### Host stats
+
+The opt-in `host_stats` section samples macOS CPU, memory, network, disk and uptime for dashboard dials. Add this to `~/.config/agentsmon/config.json` (settings there survive code updates):
+
+```json
+"host_stats": {
+  "enabled": true,
+  "interval_seconds": 5,
+  "network_max_mbps": 1000,
+  "warn_percent": 70,
+  "critical_percent": 90,
+  "disk_path": "/"
+}
+```
+
+`interval_seconds` sets the sampling interval; `network_max_mbps` is the dial's full-scale link speed in Mbps. Set it to your interface's negotiated speed (macOS: find the interface with `route -n get default`, then inspect `networksetup -getMedia <iface>` or the media line from `ifconfig <iface>`). `warn_percent` and `critical_percent` set amber and red thresholds. Set `disk_path` to the mounted volume to measure when your data volume differs from `/`. Restart the dashboard after changing config: stop its current `agentsmon dashboard` process, then run `agentsmon dashboard` again (documented under [Commands](#commands)). Host stats are macOS-only for now; unsupported platforms and failed metrics appear unavailable.
+
 ### Safe conversation ownership (0.3.3)
 
 Agents sharing a directory must have independent conversation IDs. Detection uses

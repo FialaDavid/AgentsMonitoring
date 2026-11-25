@@ -48,6 +48,8 @@ DEFAULTS = {
                        "sources": ["launchd", "hermes"], "ignore": [],
                        "launchd_dir": "~/Library/LaunchAgents", "hermes_cron_dir": "~/.hermes/cron",
                        "notify_command": []},
+    "host_stats": {"enabled": False, "interval_seconds": 5, "network_max_mbps": 1000,
+                   "warn_percent": 70, "critical_percent": 90, "disk_path": "/"},
 }
 
 

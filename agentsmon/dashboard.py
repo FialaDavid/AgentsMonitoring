@@ -22,7 +22,7 @@ import threading
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-from . import config, db, detect, keepalive, probe, plugins
+from . import config, db, detect, keepalive, probe, plugins, host_stats
 
 
 def password_hash(password: str) -> str:
@@ -102,6 +102,10 @@ PAGE = r"""<!DOCTYPE html><html lang="en"><head>
 </head><body class="bg-slate-50 text-slate-800 antialiased">
 <div id="toast" class="fixed left-1/2 bottom-5 -translate-x-1/2 bg-slate-800 text-white text-sm px-2 py-1.5 rounded-md shadow-lg opacity-0 pointer-events-none" style="z-index:50">&nbsp;</div>
 <div id="app" class="mx-auto px-5 py-6" style="max-width:1100px">
+  <section id="host-stats" class="mb-6" hidden>
+    <h2 class="text-base font-semibold mb-3">Host</h2>
+    <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3" id="host-tiles"></div>
+  </section>
 AGENT_TABLES
   <div id="services"></div>
   <section id="scheduled-jobs" class="mb-6" hidden>
@@ -200,6 +204,27 @@ function fmtReset(ts, now){
   return `resets in ${rel} · ${d.toLocaleDateString("en-GB",{weekday:"short"})} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 function fmtLat(ms){return ms==null?"–":(ms<1?"<1 ms":ms+" ms");}
+function hostGauge(value,scale=100,warn=70,critical=90){
+  if(value==null)return '<span class="text-2xl font-semibold text-slate-400">–</span>';
+  const pct=Math.max(0,Math.min(100,value/scale*100)), color=pct>=critical?'#f43f5e':pct>=warn?'#f59e0b':'#10b981';
+  const dash=126*(1-pct/100);
+  return `<svg viewBox="0 0 100 58" class="w-28 h-16" aria-hidden="true"><path d="M10 50 A40 40 0 0 1 90 50" fill="none" stroke="#e2e8f0" stroke-width="9" stroke-linecap="round"/><path d="M10 50 A40 40 0 0 1 90 50" fill="none" stroke="${color}" stroke-width="9" stroke-linecap="round" stroke-dasharray="126" stroke-dashoffset="${dash}"/><text x="50" y="47" text-anchor="middle" font-size="16" font-weight="600" fill="#1e293b">${Math.round(value)}%</text></svg>`;
+}
+function hostTile(title,gauge,caption){return `<div class="rounded-lg border border-slate-200 bg-white p-3 min-w-0"><p class="text-[11px] uppercase tracking-wide text-slate-400">${title}</p><div class="h-[4.5rem] flex items-center justify-center">${gauge}</div><p class="text-[11px] text-slate-500 text-center break-words">${caption}</p></div>`;}
+function hostBytes(n){if(n==null)return "–";return n>=1024*1024?`${(n/1024/1024).toFixed(1)} MB/s`:`${(n/1024).toFixed(0)} KB/s`;}
+function hostGB(n){return n==null?"–":`${(n/1024/1024/1024).toFixed(1)} GB`;}
+function renderHost(h){
+  const section=document.getElementById("host-stats"); section.hidden=!h; if(!h)return;
+  const s=h.settings||{network_max_mbps:1000,warn_percent:70,critical_percent:90}, warn=s.warn_percent, critical=s.critical_percent;
+  const c=h.cpu,m=h.memory,n=h.network,d=h.disk;
+  const load=c&&c.load?c.load.map(x=>Number(x).toFixed(1)).join("/"):"–";
+  const mem=m?`${hostGB(m.used)} / ${hostGB(m.total)} · wired ${hostGB(m.wired)} · compressed ${hostGB(m.compressed)} · swap ${hostGB(m.swap_used)} · free ${m.pressure_free_percent==null?"–":m.pressure_free_percent+"%"}`:"–";
+  const net=n&&n.rx_bps!=null&&n.tx_bps!=null?Math.max(n.rx_bps,n.tx_bps):null;
+  const netCaption=n?`↓ ${hostBytes(n.rx_bps)} · ↑ ${hostBytes(n.tx_bps)}`:"–";
+  const disk=d?`${hostGB(d.used)} / ${hostGB(d.total)} · ${hostGB(d.free)} free`:"–";
+  const uptime=h.uptime==null?"–":`${Math.floor(h.uptime/86400)} d ${Math.floor(h.uptime%86400/3600)} h ${Math.floor(h.uptime%3600/60)} min`;
+  document.getElementById("host-tiles").innerHTML=[hostTile("CPU",hostGauge(c&&c.percent,100,warn,critical),`load ${load} · ${c&&c.cores!=null?c.cores:"–"} cores`),hostTile("Memory",hostGauge(m&&m.percent,100,warn,critical),mem),hostTile("Network",hostGauge(net,s.network_max_mbps*1e6/8,warn,critical),netCaption),hostTile("Disk",hostGauge(d&&d.percent,100,warn,critical),disk),hostTile("Uptime",`<span class="text-lg font-semibold text-slate-700">${uptime}</span>`,"since boot")].join("");
+}
 function esc(s){return String(s==null?"":s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));}
 const q=(r,s)=>r.querySelector(s);
 
@@ -560,6 +585,7 @@ async function refresh(){
   try{
     const d=await (await fetch("/api/state",{credentials:"same-origin"})).json();
     document.getElementById('app').style.maxWidth=(1100+(d.columns||[]).length*100)+'px';
+    renderHost(d.host);
     const agentsRoot=document.querySelector('section[data-svc="agents"]');
     renderAgents(agentsRoot, d.agents, null, d.columns||[]); initCollapse(agentsRoot,"agents",0);
     const usageRoot=document.getElementById("usage-sections");
@@ -970,7 +996,10 @@ def _state() -> bytes:
             "usage_view": usage_view, "columns": columns, "plugin_errors": extra['errors'], "plugins": extra['plugins'],
             "plugin_loading": extra.get('loading', False),
             "core": core_status(), "services": services,
-            "scheduled_jobs": _scheduled_jobs_state(cfg)}
+            "scheduled_jobs": _scheduled_jobs_state(cfg),
+            "host": ({**host_stats.latest(), "settings": {k: cfg["host_stats"][k] for k in
+                      ("network_max_mbps", "warn_percent", "critical_percent")}}
+                     if cfg.get("host_stats", {}).get("enabled") and host_stats.latest() else None)}
     return json.dumps(data).encode()
 
 
@@ -1000,6 +1029,13 @@ def _scheduled_jobs_loop(stop: threading.Event, cfg: dict) -> None:
             scheduled_jobs.tick(cfg)
         except Exception:
             pass
+        stop.wait(interval)
+
+
+def _host_stats_loop(stop: threading.Event, cfg: dict) -> None:
+    interval = int(cfg.get("host_stats", {}).get("interval_seconds", 5))
+    while not stop.is_set():
+        host_stats.tick(cfg.get("host_stats", {}).get("disk_path", "/"))
         stop.wait(interval)
 
 
@@ -1041,6 +1077,8 @@ def serve(host: str, port: int) -> None:
         threading.Thread(target=_probe_loop, args=(threading.Event(),), daemon=True).start()
     if cfg.get("scheduled_jobs", {}).get("enabled"):
         threading.Thread(target=_scheduled_jobs_loop, args=(threading.Event(), cfg), daemon=True).start()
+    if cfg.get("host_stats", {}).get("enabled"):
+        threading.Thread(target=_host_stats_loop, args=(threading.Event(), cfg), daemon=True).start()
     write_pidfile()
     server.serve_forever()
 
