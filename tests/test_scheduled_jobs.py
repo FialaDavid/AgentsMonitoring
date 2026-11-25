@@ -82,6 +82,36 @@ class ScheduledJobs(unittest.TestCase):
         result = self.tick(self.now + dt.timedelta(minutes=16), 0)
         self.assertNotEqual(result["jobs"][0]["state"], "missed")
 
+    def test_start_interval_reset_after_reboot_restarts_timer(self):
+        self.plist("rebooted", StartInterval=3600)
+        t = dt.datetime(2026, 11, 25, 2, 18, 7, tzinfo=dt.timezone.utc)
+        self.tick(t, 184)
+        t = dt.datetime(2026, 11, 25, 2, 21, 7, tzinfo=dt.timezone.utc)
+        self.tick(t, 185)
+        t = dt.datetime(2026, 11, 25, 2, 46, 32, tzinfo=dt.timezone.utc)
+        self.tick(t, 1)
+        cutoff = dt.datetime(2026, 11, 25, 3, 36, 7, tzinfo=dt.timezone.utc)
+        while t + dt.timedelta(minutes=3) < cutoff:
+            t += dt.timedelta(minutes=3)
+            self.tick(t, 1)
+        result = self.tick(cutoff, 1)
+        self.assertNotEqual(result["jobs"][0]["state"], "missed")
+
+    def test_start_interval_reset_then_long_flat_period_is_missed(self):
+        self.plist("rebooted", StartInterval=3600)
+        t = dt.datetime(2026, 11, 25, 2, 18, 7, tzinfo=dt.timezone.utc)
+        self.tick(t, 184)
+        t = dt.datetime(2026, 11, 25, 2, 21, 7, tzinfo=dt.timezone.utc)
+        self.tick(t, 185)
+        t = dt.datetime(2026, 11, 25, 2, 46, 32, tzinfo=dt.timezone.utc)
+        self.tick(t, 1)
+        cutoff = dt.datetime(2026, 11, 25, 4, 1, 32, tzinfo=dt.timezone.utc)
+        while t + dt.timedelta(minutes=3) < cutoff:
+            t += dt.timedelta(minutes=3)
+            result = self.tick(t, 1)
+        result = self.tick(cutoff, 1)
+        self.assertEqual(result["jobs"][0]["state"], "missed")
+
     def test_nonzero_exit_and_keepalive(self):
         self.plist("failed", StartInterval=60)
         self.plist("daemon", StartInterval=60, KeepAlive=True)

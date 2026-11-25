@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- StartInterval missed-job detection restarts its timer after a launchd counter reset.
 - Added tunable opt-in macOS host gauges with configurable network scale, thresholds and disk volume.
 - Delay FAILED notifications until a job has remained failed for `grace_seconds`.
 - Added opt-in Scheduled jobs monitoring for launchd calendar/interval jobs and Hermes cron jobs, with dashboard state and batched state-change notifications.

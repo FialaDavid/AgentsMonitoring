@@ -139,6 +139,8 @@ def _launchd(cfg, con, now):
                 target = _recent_calendar(intervals, now)
             elif start_interval:
                 base = increases[-1] if increases else (rows[0][0] if rows else None)
+                if reset_ts is not None:
+                    base = max(base, reset_ts) if base is not None else reset_ts
                 if base is not None:
                     target = base + int(start_interval)
             if reset_ts is not None and target is not None and target < reset_ts:
