@@ -208,7 +208,7 @@ function hostGauge(value,scale=100,warn=70,critical=90){
   if(value==null)return '<span class="text-2xl font-semibold text-slate-400">–</span>';
   const pct=Math.max(0,Math.min(100,value/scale*100)), color=pct>=critical?'#f43f5e':pct>=warn?'#f59e0b':'#10b981';
   const dash=126*(1-pct/100);
-  return `<svg viewBox="0 0 100 58" class="w-28 h-16" aria-hidden="true"><path d="M10 50 A40 40 0 0 1 90 50" fill="none" stroke="#e2e8f0" stroke-width="9" stroke-linecap="round"/><path d="M10 50 A40 40 0 0 1 90 50" fill="none" stroke="${color}" stroke-width="9" stroke-linecap="round" stroke-dasharray="126" stroke-dashoffset="${dash}"/><text x="50" y="47" text-anchor="middle" font-size="16" font-weight="600" fill="#1e293b">${Math.round(value)}%</text></svg>`;
+  return `<svg viewBox="0 0 100 58" class="w-28 h-16" aria-hidden="true"><path d="M10 50 A40 40 0 0 1 90 50" fill="none" stroke="#e2e8f0" stroke-width="9" stroke-linecap="round"/><path d="M10 50 A40 40 0 0 1 90 50" fill="none" stroke="${color}" stroke-width="9" stroke-linecap="round" stroke-dasharray="126" stroke-dashoffset="${dash}"/><text x="50" y="47" text-anchor="middle" font-size="16" font-weight="600" fill="#1e293b">${Math.round(value/scale*100)}%</text></svg>`;
 }
 function hostTile(title,gauge,caption){return `<div class="rounded-lg border border-slate-200 bg-white p-3 min-w-0"><p class="text-[11px] uppercase tracking-wide text-slate-400">${title}</p><div class="h-[4.5rem] flex items-center justify-center">${gauge}</div><p class="text-[11px] text-slate-500 text-center break-words">${caption}</p></div>`;}
 function hostBytes(n){if(n==null)return "–";return n>=1024*1024?`${(n/1024/1024).toFixed(1)} MB/s`:`${(n/1024).toFixed(0)} KB/s`;}
