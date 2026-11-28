@@ -110,6 +110,7 @@ AGENT_TABLES
   <div id="services"></div>
   <section id="scheduled-jobs" class="mb-6" hidden>
     <h2 class="text-base font-semibold mb-3">Scheduled jobs</h2>
+    <div id="scheduled-job-errors" class="mb-3"></div>
     <div class="rounded-lg border border-slate-200 bg-white overflow-x-auto">
       <table class="w-full text-sm scheduled-table"><thead>
         <tr class="text-[11px] uppercase tracking-wide text-slate-400 border-b border-slate-100">
@@ -621,6 +622,11 @@ async function refresh(){
     const scheduled=document.getElementById("scheduled-jobs");
     scheduled.hidden=!d.scheduled_jobs;
     if(d.scheduled_jobs){
+      const errors=document.getElementById("scheduled-job-errors"); errors.replaceChildren();
+      (d.scheduled_jobs.errors||[]).forEach(error=>{
+        const box=document.createElement("div"); box.className="mb-2 border border-rose-200 bg-rose-50 rounded-lg p-3 text-sm";
+        box.textContent=(error.source||"Scheduled jobs")+": "+(error.detail||error); errors.appendChild(box);
+      });
       const rank={failed:0,missed:1,unknown:2,unloaded:2,ok:3};
       const rows=[...(d.scheduled_jobs.jobs||[])].sort((a,b)=>(rank[a.state]??2)-(rank[b.state]??2));
       const body=document.getElementById("scheduled-job-rows"); body.replaceChildren();

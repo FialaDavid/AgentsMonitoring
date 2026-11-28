@@ -31,6 +31,7 @@ async def verify(args):
     table={'id':'fixture:team','title':'Example Team','rows':[extension],'up':True,'error':'','note':'Fixture'}
     payload={'agents':[shared,daemon],'agent_tables':[table], 'columns':[], 'services':[],
              'plugins':[],'plugin_errors':[], 'core':{'version':'0.3.0','state':'clean'},
+             'scheduled_jobs':{'jobs':[],'errors':[{'source':'Hermes','detail':'jobs.json is missing'}]},
              'sandbox_agents':{'enabled':True,'rows':[extension],'up':True,'stale':False,'age_s':1}}
     service={'name':'Knowledge health','up':True,'state':'operational','detail':'OK',
              'row_details':True,'uptime_seconds':60,'sla':100,'sla_window_days':90,'sla_samples':1,
@@ -75,6 +76,8 @@ async def verify(args):
                 upper=page.locator('[data-svc="agents"]')
                 lower=page.locator('[data-svc="fixture:team"]')
                 await lower.locator('tbody td').first.wait_for()
+                scheduled_error=page.locator('#scheduled-job-errors')
+                await scheduled_error.get_by_text('Hermes: jobs.json is missing').wait_for()
                 card=page.locator('#services section').first
                 # A module can opt into visible metrics without changing stable row identities.
                 assert await card.locator('.rows-value-label').text_content()=='Detail'

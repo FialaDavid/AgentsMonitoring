@@ -165,11 +165,21 @@ def _hermes(cfg, now):
     jobs, errors = [], []
     root = Path(os.path.expanduser(os.path.expandvars(cfg.get("hermes_cron_dir", "~/.hermes/cron"))))
     jobs_path, db_path = root / "jobs.json", root / "executions.db"
+    if not root.is_dir():
+        return jobs, errors
     try:
         data = json.loads(jobs_path.read_text("utf-8"))
-    except (OSError, ValueError):
+    except FileNotFoundError:
+        errors.append({"source": "Hermes", "detail": "jobs.json is missing"})
+        return jobs, errors
+    except (json.JSONDecodeError, UnicodeDecodeError):
+        errors.append({"source": "Hermes", "detail": "jobs.json contains invalid JSON"})
+        return jobs, errors
+    except OSError:
+        errors.append({"source": "Hermes", "detail": "jobs.json is unreadable"})
         return jobs, errors
     if not db_path.is_file():
+        errors.append({"source": "Hermes", "detail": "executions.db is missing"})
         return jobs, errors
     latest = {}
     try:
@@ -185,7 +195,7 @@ def _hermes(cfg, now):
         finally:
             con.close()
     except sqlite3.Error:
-        pass
+        errors.append({"source": "Hermes", "detail": "executions.db could not be read (SQLite error)"})
     for item in data.get("jobs", []):
         if not item.get("enabled") or item.get("state") != "scheduled":
             continue

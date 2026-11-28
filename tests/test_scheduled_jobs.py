@@ -148,6 +148,30 @@ class ScheduledJobs(unittest.TestCase):
                          {"error": "failed", "execmiss": "missed", "overdue": "missed", "good": "ok"})
         self.assertEqual(jobs["error"]["detail"], "bad")
 
+    def test_hermes_configuration_and_input_errors(self):
+        scenarios = [
+            ("missing-home", None, None, None),
+            ("missing-jobs", "jobs.json is missing", None, None),
+            ("invalid-json", "jobs.json contains invalid JSON", "{", None),
+            ("missing-db", "executions.db is missing", '{"jobs": []}', None),
+            ("corrupt-db", "executions.db could not be read (SQLite error)", '{"jobs": []}', "corrupt"),
+        ]
+        for name, detail, jobs, database in scenarios:
+            with self.subTest(name=name):
+                root = self.root / name
+                if name != "missing-home":
+                    root.mkdir()
+                self.cfg["scheduled_jobs"]["hermes_cron_dir"] = str(root)
+                if jobs is not None:
+                    (root / "jobs.json").write_text(jobs)
+                if database == "corrupt":
+                    (root / "executions.db").write_text("not a SQLite database")
+                result = scheduled_jobs.tick(self.cfg, self.now)
+                if detail is None:
+                    self.assertEqual(result["errors"], [])
+                else:
+                    self.assertEqual(result["errors"], [{"source": "Hermes", "detail": detail}])
+
     def test_notifications_batch_once_recovery_and_retry(self):
         self.plist("one", StartInterval=60)
         self.plist("two", StartInterval=60)
